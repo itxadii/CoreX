@@ -1,0 +1,3 @@
+# backend/src/requirements.txt
+boto3
+requests
