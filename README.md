@@ -217,8 +217,8 @@ CoreX follows real-world AWS architecture principles:
 **Aditya Waghmare**  
 AWS & Cloud-Native Engineer | GenAI Builder | Terraform Specialist
 
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0077B5?style=flat&logo=linkedin)](https://linkedin.com)
-[![GitHub](https://img.shields.io/badge/GitHub-Follow-181717?style=flat&logo=github)](https://github.com)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0077B5?style=flat&logo=linkedin)](https://linkedin.com/in/xadi)
+[![GitHub](https://img.shields.io/badge/GitHub-Follow-181717?style=flat&logo=github)](https://github.com/itxadii)
 
 ---
 
