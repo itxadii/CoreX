@@ -118,7 +118,8 @@ resource "aws_api_gateway_method" "corex_proxy_method" {
   rest_api_id   = aws_api_gateway_rest_api.corex_api.id
   resource_id   = aws_api_gateway_resource.corex_proxy.id
   http_method   = "ANY"
-  authorization = "NONE" # No auth for now, we can add it later
+  authorization = "COGNITO_USER_POOLS"
+  authorizer_id = aws_api_gateway_authorizer.corex_auth.id
 }
 
 # 10. API GATEWAY INTEGRATION (connects / proxy to Lambda)
@@ -139,7 +140,8 @@ resource "aws_api_gateway_method" "corex_root_method" {
   rest_api_id   = aws_api_gateway_rest_api.corex_api.id
   resource_id   = aws_api_gateway_rest_api.corex_api.root_resource_id
   http_method   = "ANY"
-  authorization = "NONE"
+  authorization = "COGNITO_USER_POOLS"
+  authorizer_id = aws_api_gateway_authorizer.corex_auth.id
 }
 
 # 12. API GATEWAY INTEGRATION (connects / root to Lambda)
@@ -208,4 +210,62 @@ resource "aws_lambda_permission" "api_gateway_permission" {
 output "api_invoke_url" {
   description = "The invoke URL for your CoreX API"
   value       = aws_api_gateway_stage.corex_stage.invoke_url
+}
+# -----------------------------------------------------------------
+# 17. COGNITO USER POOL (The "database" of your users)
+# -----------------------------------------------------------------
+resource "aws_cognito_user_pool" "corex_users" {
+  name = "corex-user-pool"
+
+  # Let users sign in with email and auto-verify them
+  username_attributes      = ["email"]
+  auto_verified_attributes = ["email"]
+
+  # Standard password policy
+  password_policy {
+    minimum_length    = 8
+    require_lowercase = true
+    require_numbers   = true
+    require_symbols   = false
+    require_uppercase = true
+  }
+}
+
+# -----------------------------------------------------------------
+# 18. COGNITO USER POOL CLIENT (The "app connection")
+# -----------------------------------------------------------------
+resource "aws_cognito_user_pool_client" "corex_client" {
+  name = "corex-react-client"
+  user_pool_id = aws_cognito_user_pool.corex_users.id
+
+  # This is CRITICAL for a browser-based app
+  generate_secret = false 
+  
+  # These are the login methods we will allow
+  explicit_auth_flows = [
+    "ALLOW_USER_PASSWORD_AUTH",
+    "ALLOW_USER_SRP_AUTH",
+    "ALLOW_REFRESH_TOKEN_AUTH"
+  ]
+}
+
+# -----------------------------------------------------------------
+# 19. API GATEWAY AUTHORIZER (The "Security Guard")
+# -----------------------------------------------------------------
+resource "aws_api_gateway_authorizer" "corex_auth" {
+  name          = "CoreXCognitoAuthorizer"
+  type          = "COGNITO_USER_POOLS"
+  rest_api_id   = aws_api_gateway_rest_api.corex_api.id
+  provider_arns = [aws_cognito_user_pool.corex_users.arn]
+}
+
+# -----------------------------------------------------------------
+# 20. NEW OUTPUTS
+# -----------------------------------------------------------------
+output "cognito_user_pool_id" {
+  value = aws_cognito_user_pool.corex_users.id
+}
+
+output "cognito_client_id" {
+  value = aws_cognito_user_pool_client.corex_client.id
 }
