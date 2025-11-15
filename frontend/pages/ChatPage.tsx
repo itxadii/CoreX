@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Amplify } from 'aws-amplify';
 import Navbar from '../components/Navbar';
-import Sidebar from '../components/Sidebar.tsx';
+import Sidebar from '../components/SideBar';
 
 // --- 1. CONFIGURE AMPLIFY ---
 Amplify.configure({
@@ -18,7 +18,7 @@ const API_URL = "https://cpii8b8jlj.execute-api.ap-south-1.amazonaws.com/dev";
 function App() {
   
   // --- ALL STATE LIVES HERE ---
-  const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
+  const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
   const [isTempChat, setIsTempChat] = useState(false);
   const [prompt, setPrompt] = useState('');
   const [apiResponse, setApiResponse] = useState('');
