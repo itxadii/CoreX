@@ -19,7 +19,9 @@ except Exception as e:
 # We will only allow requests from these two domains.
 ALLOWED_ORIGINS = {
     'http://localhost:5173',
-    'https://main.d3h4csxsp92hux.amplifyapp.com' # No trailing slash
+    'https://main.d3h4csxsp92hux.amplifyapp.com',
+    'https://dev.d3h4csxsp92hux.amplifyapp.com'
+     # No trailing slash
 }
 
 def get_cors_headers(request_origin: str) -> dict:
