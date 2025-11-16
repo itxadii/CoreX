@@ -9,29 +9,37 @@ interface ChatListProps {
 }
 
 const ChatList: React.FC<ChatListProps> = ({ messages, isLoading }) => {
-  const endOfMessagesRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to the bottom when new messages are added
+  // Auto-scroll to bottom whenever messages change or loading state changes
   useEffect(() => {
-    endOfMessagesRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isLoading]);
 
   return (
-    // This div handles the scrolling
-    <div className="flex-1 w-full overflow-y-auto p-4 space-y-2">
-      {messages.map((msg) => (
-        <MessageBubble key={msg.id} message={msg} />
-      ))}
-      
-      {/* Show a 'Typing...' bubble while loading */}
-      {isLoading && (
-        <div className="flex justify-start">
-          <ResponseLoader />
-        </div>
-      )}
-      
-      {/* This empty div is the anchor for auto-scrolling */}
-      <div ref={endOfMessagesRef} />
+    // This is the full-height, scrollable container
+    <div className="flex-1 w-full overflow-y-auto p-4 md:p-6">
+
+      {/* THIS IS THE FIX:
+        This new div wraps all your chat content.
+        - 'max-w-3xl': Sets a max width (same as your prompt box).
+        - 'mx-auto':   Centers the content (margin left/right auto).
+        - 'space-y-4': Applies spacing between chat bubbles.
+      */}
+      <div className="max-w-3xl mx-auto space-y-4">
+
+        {/* Render all messages */}
+        {messages.map((msg) => (
+          <MessageBubble key={msg.id} message={msg} />
+        ))}
+
+        {/* 2. Show the Loader component when loading */}
+        {isLoading && <ResponseLoader />}
+        
+        {/* Invisible element to scroll to */}
+        <div ref={bottomRef} />
+
+      </div> {/* End of the new wrapper div */}
     </div>
   );
 };
