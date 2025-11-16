@@ -1,7 +1,5 @@
-// SidebarItem.tsx
 import React from 'react';
 
-// 1. Update the props: 'expanded' is no longer needed
 interface SidebarItemProps {
   icon: React.ReactNode;
   text: string;
@@ -15,25 +13,20 @@ const SidebarItem: React.FC<SidebarItemProps> = ({
 }) => {
   return (
     <li className={`
-        relative flex items-center py-2 px-3 my-1
-        font-medium rounded-md cursor-pointer
-        transition-colors group
-        ${active 
-            ? "bg-gray-200 text-gray-800"
-            : "hover:bg-gray-100 text-gray-600"
-        }
-    `}>
-      {icon}
-      
-      {/* 2. Text label is now always visible */}
-      {/* The 'overflow-hidden' and 'w-0' logic is removed */}
-      <span className="w-40 ml-3">
-        {text}
-      </span>
-      
-      {/* 3. Tooltip logic is removed */}
-    </li>
-  );
+      relative flex items-center py-2 px-3 my-1
+      font-medium rounded-md cursor-pointer
+      transition-colors group
+      ${active 
+          ? "bg-zinc-700 text-white" // Dark mode active
+          : "text-gray-300 hover:bg-zinc-800 hover:text-white" // Dark mode inactive
+      }
+  `}>
+    {icon}
+    <span className="w-40 ml-3">
+      {text}
+    </span>
+  </li>
+);
 }
 
 export default SidebarItem;

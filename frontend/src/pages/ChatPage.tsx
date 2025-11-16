@@ -1,10 +1,14 @@
 import { useState } from 'react';
 import { Amplify } from 'aws-amplify';
 import Navbar from '../components/Navbar';
-import Sidebar from '../components/SideBar'; // Fixed casing to standard 'Sidebar'
+import Sidebar from '../components/SideBar';
 import PromptInput from '../components/PromptInput';
 import ChatList from '../components/ChatList';
 import type { ChatMessage } from '../components/MessageBubble';
+// You may need to install uuid if you haven't
+// npm install uuid
+// npm install @types/uuid -D
+import { v4 as uuidv4 } from 'uuid'; 
 
 // --- 1. CONFIGURE AMPLIFY ---
 Amplify.configure({
@@ -15,7 +19,6 @@ Amplify.configure({
     }
   }
 });
-
 const API_URL = "https://cpii8b8jlj.execute-api.ap-south-1.amazonaws.com/dev";
 
 function App() {
@@ -25,8 +28,6 @@ function App() {
   const [isTempChat, setIsTempChat] = useState(false);
   const [prompt, setPrompt] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  
-  // Changed: Store a list of messages instead of one string
   const [messages, setMessages] = useState<ChatMessage[]>([]);
 
   // --- HANDLERS ---
@@ -40,9 +41,8 @@ function App() {
     const currentPrompt = prompt;
     setPrompt(''); // Clear input immediately
 
-    // 1. Add User Message
     const userMsg: ChatMessage = {
-      id: crypto.randomUUID(), // Native browser UUID
+      id: uuidv4(), // Use uuid
       text: currentPrompt,
       sender: 'user'
     };
@@ -56,14 +56,11 @@ function App() {
       });
 
       const data = await response.json();
-      
-      // Determine the text to show. 
-      // Adjust 'data.response' if your API returns the text in a different field.
+      // Adjust 'data.response' if your API returns text in a different field
       const aiText = data.response || data.message || JSON.stringify(data, null, 2);
 
-      // 2. Add AI Message
       const aiMsg: ChatMessage = {
-        id: crypto.randomUUID(),
+        id: uuidv4(),
         text: aiText,
         sender: 'ai'
       };
@@ -72,7 +69,7 @@ function App() {
     } catch (error) {
       console.error("Error:", error);
       const errorMsg: ChatMessage = {
-        id: crypto.randomUUID(),
+        id: uuidv4(),
         text: "Error: Failed to reach the server.",
         sender: 'ai'
       };
@@ -84,34 +81,36 @@ function App() {
 
   // --- RENDER ---
   return (
-    <div className="relative h-screen bg-black text-white overflow-hidden">
+    // The root div is now a simple flex container
+    <div className="h-screen bg-black text-white overflow-hidden flex">
       
-      {/* SIDEBAR */}
+      {/* 1. SIDEBAR - Floats on top */}
       <Sidebar expanded={isSidebarExpanded} />
 
-      {/* MAIN LAYOUT */}
-      <div className={`
-          flex flex-col h-full 
-          transition-all duration-300 ease-in-out
-          ${isSidebarExpanded ? 'ml-64' : 'ml-0'}
-      `}>
+      {/* 2. BACKDROP - Appears behind sidebar */}
+      {isSidebarExpanded && (
+        <div 
+          onClick={handleToggleSidebar} // Click to close
+          className="fixed inset-0 bg-black/60 z-40" // Removed lg:hidden to work on all screens
+        />
+      )}
+
+      {/* 3. MAIN CONTENT - NO MARGIN-LEFT
+          This div *always* takes up the full space.
+      */}
+      <div className="flex-1 flex flex-col h-full overflow-hidden">
         
-        {/* NAVBAR */}
         <Navbar 
           onToggleSidebar={handleToggleSidebar}
           isTempChat={isTempChat}
           onToggleTempChat={handleToggleTempChat}
         />
 
-        {/* CHAT CONTENT - Takes remaining space */}
         <div className="flex-1 flex flex-col overflow-hidden relative">
-          
-          {/* 1. Scrollable Chat List */}
           <ChatList messages={messages} isLoading={isLoading} />
-
-          {/* 2. Input Area (Fixed at bottom) */}
-          <div className="relative w-full p-4 bg-black/90 border-t border-zinc-800 backdrop-blur-sm">
-            <div className="relative max-w-3xl mx-auto">
+          
+          <div className="w-full p-4 bg-black/90 border-t border-zinc-800 backdrop-blur-sm">
+            <div className="max-w-3xl mx-auto">
               <PromptInput
                 prompt={prompt}
                 setPrompt={setPrompt}
@@ -123,7 +122,6 @@ function App() {
               </p>
             </div>
           </div>
-          
         </div>
       </div>
     </div>

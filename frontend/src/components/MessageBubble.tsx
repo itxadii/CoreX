@@ -17,7 +17,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
   const isUser = message.sender === 'user';
 
   return (
-    <div className={`w-full flex ${isUser ? 'justify-end' : 'justify-start'} my-2`}>
+    <div className={`w-full flex ${isUser ? 'justify-end' : 'justify-start'} my-6`}>
       {/*
         THIS IS THE FIX:
         All 'prose' classes are now on this parent <div>,
