@@ -5,21 +5,28 @@ import Sidebar from '../components/SideBar';
 import PromptInput from '../components/PromptInput';
 import ChatList from '../components/ChatList';
 import type { ChatMessage } from '../components/MessageBubble';
-// You may need to install uuid if you haven't
-// npm install uuid
-// npm install @types/uuid -D
-import { v4 as uuidv4 } from 'uuid'; 
+import { v4 as uuidv4 } from 'uuid';
 
+// Vite exposes them on import.meta.env
+const USER_POOL_ID = import.meta.env.VITE_USER_POOL_ID;
+const USER_POOL_CLIENT_ID = import.meta.env.VITE_USER_POOL_CLIENT_ID;
+const DEV_API_URL = import.meta.env.VITE_API_URL;
+
+// --- 2. VALIDATE ENV VARIABLES ---
+// This prevents the app from crashing if the .env file is missing
+if (!USER_POOL_ID || !USER_POOL_CLIENT_ID || !DEV_API_URL) {
+  throw new Error("Missing environment variables. Please check your .env file and restart the dev server.");
+}
 // --- 1. CONFIGURE AMPLIFY ---
 Amplify.configure({
   Auth: {
     Cognito: {
-      userPoolId: "ap-south-1_0kTTQtmWq",
-      userPoolClientId: "16pcm64ma6l1j6ga9htr40dibf",
+      userPoolId: USER_POOL_ID,
+      userPoolClientId: USER_POOL_CLIENT_ID,
     }
   }
 });
-const API_URL = "https://cpii8b8jlj.execute-api.ap-south-1.amazonaws.com/dev";
+const API_URL = DEV_API_URL;
 
 function App() {
   
