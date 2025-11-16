@@ -40,16 +40,16 @@ const Sidebar: React.FC<SidebarProps> = ({ expanded }) => (
         {/* 4. 'expanded' prop is no longer needed for items */}
         <SidebarItem 
           icon={<FiBox size={20} />} 
-          text="CoreX" 
+          text="Chat History 1" 
           active
         />
         <SidebarItem 
           icon={<FiBox size={20} />} 
-          text="SurroundYou" 
+          text="Chat History 2" 
         />
         <SidebarItem 
           icon={<FiBox size={20} />} 
-          text="Cloud Engineer Resume" 
+          text="Chat History 3" 
         />
       </ul>
 

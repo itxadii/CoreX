@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import { Amplify } from 'aws-amplify';
 import Navbar from '../components/Navbar';
-import Sidebar from '../components/SideBar';
+import Sidebar from '../components/SideBar'; // Fixed casing to standard 'Sidebar'
+import PromptInput from '../components/PromptInput';
+import ChatList from '../components/ChatList';
+import type { ChatMessage } from '../components/MessageBubble';
 
 // --- 1. CONFIGURE AMPLIFY ---
 Amplify.configure({
@@ -12,113 +15,116 @@ Amplify.configure({
     }
   }
 });
+
 const API_URL = "https://cpii8b8jlj.execute-api.ap-south-1.amazonaws.com/dev";
 
-// --- 2. COMBINE ALL LOGIC INTO THE 'App' COMPONENT ---
 function App() {
   
-  // --- ALL STATE LIVES HERE ---
+  // --- STATE ---
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
   const [isTempChat, setIsTempChat] = useState(false);
   const [prompt, setPrompt] = useState('');
-  const [apiResponse, setApiResponse] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Changed: Store a list of messages instead of one string
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
 
-  // --- ALL HANDLERS LIVE HERE ---
-  const handleToggleSidebar = () => {
-    setIsSidebarExpanded((prev) => !prev);
-  };
-
-  const handleToggleTempChat = () => {
-    setIsTempChat((prev) => !prev);
-    console.log("Temp chat is now:", !isTempChat);
-  };
+  // --- HANDLERS ---
+  const handleToggleSidebar = () => setIsSidebarExpanded(prev => !prev);
+  const handleToggleTempChat = () => setIsTempChat(prev => !prev);
 
   const handleTestApi = async () => {
-    if (!prompt) {
-      setApiResponse(JSON.stringify({ error: "Prompt cannot be empty." }, null, 2));
-      return;
-    }
+    if (!prompt.trim()) return;
+
     setIsLoading(true);
-    setApiResponse('Loading...');
+    const currentPrompt = prompt;
+    setPrompt(''); // Clear input immediately
+
+    // 1. Add User Message
+    const userMsg: ChatMessage = {
+      id: crypto.randomUUID(), // Native browser UUID
+      text: currentPrompt,
+      sender: 'user'
+    };
+    setMessages(prev => [...prev, userMsg]);
 
     try {
       const response = await fetch(API_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          prompt: prompt,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: currentPrompt }),
       });
 
       const data = await response.json();
-      setApiResponse(JSON.stringify(data, null, 2));
+      
+      // Determine the text to show. 
+      // Adjust 'data.response' if your API returns the text in a different field.
+      const aiText = data.response || data.message || JSON.stringify(data, null, 2);
+
+      // 2. Add AI Message
+      const aiMsg: ChatMessage = {
+        id: crypto.randomUUID(),
+        text: aiText,
+        sender: 'ai'
+      };
+      setMessages(prev => [...prev, aiMsg]);
 
     } catch (error) {
-      console.error("Error fetching from API:", error);
-      let errorMessage = "An unknown error occurred.";
-      if (error instanceof Error) {
-        errorMessage = error.message;
-      }
-      setApiResponse(JSON.stringify({ error: "Fetch failed", message: errorMessage }, null, 2));
+      console.error("Error:", error);
+      const errorMsg: ChatMessage = {
+        id: crypto.randomUUID(),
+        text: "Error: Failed to reach the server.",
+        sender: 'ai'
+      };
+      setMessages(prev => [...prev, errorMsg]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // --- 3. USE THE CORRECT JSX LAYOUT ---
+  // --- RENDER ---
   return (
-    // 1. This outer div is now 'relative' to position the sidebar
-    <div className="relative h-screen bg-black">
+    <div className="relative h-screen bg-black text-white overflow-hidden">
       
-      {/* 1. SIDEBAR */}
-      {/* It's rendered the same, but its internal CSS will change */}
-      <Sidebar 
-        expanded={isSidebarExpanded} 
-      />
+      {/* SIDEBAR */}
+      <Sidebar expanded={isSidebarExpanded} />
 
-      {/* 2. MAIN CONTENT AREA (Navbar + Page) */}
-      {/*
-        This div now gets a conditional 'margin-left'
-        It also needs 'transition-all' to animate the margin change
-      */}
+      {/* MAIN LAYOUT */}
       <div className={`
-          flex flex-col h-screen overflow-hidden
+          flex flex-col h-full 
           transition-all duration-300 ease-in-out
           ${isSidebarExpanded ? 'ml-64' : 'ml-0'}
       `}>
         
-        {/* 3. NAVBAR */}
+        {/* NAVBAR */}
         <Navbar 
           onToggleSidebar={handleToggleSidebar}
           isTempChat={isTempChat}
           onToggleTempChat={handleToggleTempChat}
         />
-        {/* 4. PAGE CONTENT (with its own scrollbar) */}
-        <main className="flex-1 overflow-y-auto p-4 font-mono">
-          <h1 className="text-3xl font-bold">CoreX API Test</h1>
-          <p>Enter a prompt and see the raw JSON response from your API.</p>
-          
-          <div className="input-group">
-            <input
-              type="text"
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder="Enter your test prompt..."
-              disabled={isLoading}
-            />
-            <button onClick={handleTestApi} disabled={isLoading}>
-              {isLoading ? 'Testing...' : 'Test API'}
-            </button>
-          </div>
 
-          <label>Raw API Response:</label>
-          <pre className="response-box">
-            {apiResponse}
-          </pre>
-        </main>
+        {/* CHAT CONTENT - Takes remaining space */}
+        <div className="flex-1 flex flex-col overflow-hidden relative">
+          
+          {/* 1. Scrollable Chat List */}
+          <ChatList messages={messages} isLoading={isLoading} />
+
+          {/* 2. Input Area (Fixed at bottom) */}
+          <div className="relative w-full p-4 bg-black/90 border-t border-zinc-800 backdrop-blur-sm">
+            <div className="relative max-w-3xl mx-auto">
+              <PromptInput
+                prompt={prompt}
+                setPrompt={setPrompt}
+                onSubmit={handleTestApi}
+                isLoading={isLoading}
+              />
+              <p className="text-xs text-center text-gray-500 mt-2">
+                CoreX can make mistakes. Consider checking important information.
+              </p>
+            </div>
+          </div>
+          
+        </div>
       </div>
     </div>
   );
