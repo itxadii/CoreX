@@ -2,123 +2,134 @@ import { useState } from 'react';
 import { Amplify } from 'aws-amplify';
 import Navbar from '../components/Navbar';
 import Sidebar from '../components/SideBar';
+import PromptInput from '../components/PromptInput';
+import ChatList from '../components/ChatList';
+import type { ChatMessage } from '../components/MessageBubble';
+import { v4 as uuidv4 } from 'uuid';
 
+// Vite exposes them on import.meta.env
+const USER_POOL_ID = import.meta.env.VITE_USER_POOL_ID;
+const USER_POOL_CLIENT_ID = import.meta.env.VITE_USER_POOL_CLIENT_ID;
+const DEV_API_URL = import.meta.env.VITE_API_URL;
+
+// --- 2. VALIDATE ENV VARIABLES ---
+// This prevents the app from crashing if the .env file is missing
+if (!USER_POOL_ID || !USER_POOL_CLIENT_ID || !DEV_API_URL) {
+  throw new Error("Missing environment variables. Please check your .env file and restart the dev server.");
+}
 // --- 1. CONFIGURE AMPLIFY ---
 Amplify.configure({
   Auth: {
     Cognito: {
-      userPoolId: "ap-south-1_0kTTQtmWq",
-      userPoolClientId: "16pcm64ma6l1j6ga9htr40dibf",
+      userPoolId: USER_POOL_ID,
+      userPoolClientId: USER_POOL_CLIENT_ID,
     }
   }
 });
-const API_URL = "https://cpii8b8jlj.execute-api.ap-south-1.amazonaws.com/dev";
+const API_URL = DEV_API_URL;
 
-// --- 2. COMBINE ALL LOGIC INTO THE 'App' COMPONENT ---
 function App() {
   
-  // --- ALL STATE LIVES HERE ---
+  // --- STATE ---
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
   const [isTempChat, setIsTempChat] = useState(false);
   const [prompt, setPrompt] = useState('');
-  const [apiResponse, setApiResponse] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
 
-  // --- ALL HANDLERS LIVE HERE ---
-  const handleToggleSidebar = () => {
-    setIsSidebarExpanded((prev) => !prev);
-  };
-
-  const handleToggleTempChat = () => {
-    setIsTempChat((prev) => !prev);
-    console.log("Temp chat is now:", !isTempChat);
-  };
+  // --- HANDLERS ---
+  const handleToggleSidebar = () => setIsSidebarExpanded(prev => !prev);
+  const handleToggleTempChat = () => setIsTempChat(prev => !prev);
 
   const handleTestApi = async () => {
-    if (!prompt) {
-      setApiResponse(JSON.stringify({ error: "Prompt cannot be empty." }, null, 2));
-      return;
-    }
+    if (!prompt.trim()) return;
+
     setIsLoading(true);
-    setApiResponse('Loading...');
+    const currentPrompt = prompt;
+    setPrompt(''); // Clear input immediately
+
+    const userMsg: ChatMessage = {
+      id: uuidv4(), // Use uuid
+      text: currentPrompt,
+      sender: 'user'
+    };
+    setMessages(prev => [...prev, userMsg]);
 
     try {
       const response = await fetch(API_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          prompt: prompt,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: currentPrompt }),
       });
 
       const data = await response.json();
-      setApiResponse(JSON.stringify(data, null, 2));
+      // Adjust 'data.response' if your API returns text in a different field
+      const aiText = data.response || data.message || JSON.stringify(data, null, 2);
+
+      const aiMsg: ChatMessage = {
+        id: uuidv4(),
+        text: aiText,
+        sender: 'ai'
+      };
+      setMessages(prev => [...prev, aiMsg]);
 
     } catch (error) {
-      console.error("Error fetching from API:", error);
-      let errorMessage = "An unknown error occurred.";
-      if (error instanceof Error) {
-        errorMessage = error.message;
-      }
-      setApiResponse(JSON.stringify({ error: "Fetch failed", message: errorMessage }, null, 2));
+      console.error("Error:", error);
+      const errorMsg: ChatMessage = {
+        id: uuidv4(),
+        text: "Error: Failed to reach the server.",
+        sender: 'ai'
+      };
+      setMessages(prev => [...prev, errorMsg]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // --- 3. USE THE CORRECT JSX LAYOUT ---
+  // --- RENDER ---
   return (
-    // 1. This outer div is now 'relative' to position the sidebar
-    <div className="relative h-screen bg-black">
+    // The root div is now a simple flex container
+    <div className="h-screen bg-black text-white overflow-hidden flex">
       
-      {/* 1. SIDEBAR */}
-      {/* It's rendered the same, but its internal CSS will change */}
-      <Sidebar 
-        expanded={isSidebarExpanded} 
-      />
+      {/* 1. SIDEBAR - Floats on top */}
+      <Sidebar expanded={isSidebarExpanded} />
 
-      {/* 2. MAIN CONTENT AREA (Navbar + Page) */}
-      {/*
-        This div now gets a conditional 'margin-left'
-        It also needs 'transition-all' to animate the margin change
+      {/* 2. BACKDROP - Appears behind sidebar */}
+      {isSidebarExpanded && (
+        <div 
+          onClick={handleToggleSidebar} // Click to close
+          className="fixed inset-0 bg-black/60 z-40" // Removed lg:hidden to work on all screens
+        />
+      )}
+
+      {/* 3. MAIN CONTENT - NO MARGIN-LEFT
+          This div *always* takes up the full space.
       */}
-      <div className={`
-          flex flex-col h-screen overflow-hidden
-          transition-all duration-300 ease-in-out
-          ${isSidebarExpanded ? 'ml-64' : 'ml-0'}
-      `}>
+      <div className="flex-1 flex flex-col h-full overflow-hidden">
         
-        {/* 3. NAVBAR */}
         <Navbar 
           onToggleSidebar={handleToggleSidebar}
           isTempChat={isTempChat}
           onToggleTempChat={handleToggleTempChat}
         />
-        {/* 4. PAGE CONTENT (with its own scrollbar) */}
-        <main className="flex-1 overflow-y-auto p-4 font-mono">
-          <h1 className="text-3xl font-bold">CoreX API Test</h1>
-          <p>Enter a prompt and see the raw JSON response from your API.</p>
-          
-          <div className="input-group">
-            <input
-              type="text"
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder="Enter your test prompt..."
-              disabled={isLoading}
-            />
-            <button onClick={handleTestApi} disabled={isLoading}>
-              {isLoading ? 'Testing...' : 'Test API'}
-            </button>
-          </div>
 
-          <label>Raw API Response:</label>
-          <pre className="response-box">
-            {apiResponse}
-          </pre>
-        </main>
+        <div className="flex-1 flex flex-col overflow-hidden relative">
+          <ChatList messages={messages} isLoading={isLoading} />
+          
+          <div className="w-full p-4 bg-black/90 border-t border-zinc-800 backdrop-blur-sm">
+            <div className="max-w-3xl mx-auto">
+              <PromptInput
+                prompt={prompt}
+                setPrompt={setPrompt}
+                onSubmit={handleTestApi}
+                isLoading={isLoading}
+              />
+              <p className="text-xs text-center text-gray-500 mt-2">
+                CoreX can make mistakes. Consider checking important information.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

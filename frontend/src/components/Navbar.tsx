@@ -1,6 +1,6 @@
 import React from 'react';
 // 1. Add FiZap to your imports
-import { FiMenu, FiZap } from 'react-icons/fi';
+import { FiMenu, FiBox } from 'react-icons/fi';
 import corexLogo from '../assets/corex.png';
 
 interface NavbarProps {
@@ -42,18 +42,16 @@ const Navbar: React.FC<NavbarProps> = ({
             <button
               onClick={onToggleTempChat}
               className={`
-                p-2 rounded-lg focus:outline-none focus:ring-2 
-                focus:ring-offset-2 focus:ring-blue-500
-                transition-colors
+                p-2 rounded-lg
               `}
               aria-label="Toggle temporary chat"
             >
-              <FiZap 
-                size={22}
+              <FiBox 
+                size={25}
                 className={
                   isTempChat 
-                    ? "text-red-500" // ON state
-                    : "text-gray-400 hover:text-white" // OFF state
+                    ? "text-sky-500 hover:text-sky-600 hover:scale-110 transition-transform duration-100" // ON state
+                    : "text-gray-400 hover:text-white hover:scale-110 transition-transform duration-200" // OFF state
                 } 
               />
             </button>
