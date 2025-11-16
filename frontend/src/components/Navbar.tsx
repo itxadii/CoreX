@@ -1,7 +1,7 @@
 import React from 'react';
 // 1. Add FiZap to your imports
 import { FiMenu, FiZap } from 'react-icons/fi';
-import corexLogo from '../src/assets/corex.png';
+import corexLogo from '../assets/corex.png';
 
 interface NavbarProps {
   isTempChat: boolean;
