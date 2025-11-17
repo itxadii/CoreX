@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { signUp, confirmSignUp } from "aws-amplify/auth";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -13,6 +13,15 @@ export default function SignupPage() {
 
   const [needsConfirmation, setNeedsConfirmation] = useState(false);
   const [error, setError] = useState("");
+
+  // 🔥 RESTORE STATE WHEN USER RETURNS (fixes mobile page reload)
+  useEffect(() => {
+    const savedEmail = localStorage.getItem("pendingSignupEmail");
+    const savedNeedsConfirm = localStorage.getItem("needsConfirmation");
+
+    if (savedEmail) setEmail(savedEmail);
+    if (savedNeedsConfirm === "true") setNeedsConfirmation(true);
+  }, []);
 
   const handleSignup = async () => {
     setError("");
@@ -31,6 +40,10 @@ export default function SignupPage() {
         },
       });
 
+      // 🔥 Save state so mobile refresh doesn't kick user out
+      localStorage.setItem("pendingSignupEmail", email);
+      localStorage.setItem("needsConfirmation", "true");
+
       setNeedsConfirmation(true);
     } catch (err: any) {
       setError(err.message || "Signup failed");
@@ -45,6 +58,10 @@ export default function SignupPage() {
         username: email,
         confirmationCode: code,
       });
+
+      // 🔥 Clear storage after success
+      localStorage.removeItem("pendingSignupEmail");
+      localStorage.removeItem("needsConfirmation");
 
       navigate("/login");
     } catch (err: any) {
@@ -66,10 +83,10 @@ export default function SignupPage() {
         <source src="/auth-bg.mp4" type="video/mp4" />
       </video>
 
-      {/* Gradient Overlay */}
+      {/* Dark Gradient Layer */}
       <div className="fixed inset-0 bg-gradient-to-br from-black/80 via-black/60 to-purple-900/40 -z-5"></div>
 
-      {/* Auth Card */}
+      {/* Center Card */}
       <div className="flex justify-center items-center h-full px-4">
         <motion.div
           initial={{ opacity: 0, y: 25 }}
@@ -81,12 +98,12 @@ export default function SignupPage() {
             shadow-[0_0_40px_-10px_rgba(0,0,0,0.8)]
           "
         >
-
-          <h2 className="text-3xl mb-6 font-serif text-center">
-            Create Account
+          <h2 className="text-3xl mb-6 font-semibold text-center">
+            Create Your Account
           </h2>
 
-          {!needsConfirmation ? (
+          {/* STEP 1 — SIGNUP FORM */}
+          {!needsConfirmation && (
             <>
               {/* Email */}
               <input
@@ -124,7 +141,6 @@ export default function SignupPage() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
               />
 
-              {/* Submit */}
               <button
                 onClick={handleSignup}
                 className="
@@ -132,12 +148,14 @@ export default function SignupPage() {
                   py-3 rounded-lg font-medium transition-all
                 "
               >
-                Submit
+                Create Account
               </button>
             </>
-          ) : (
+          )}
+
+          {/* STEP 2 — ENTER CONFIRMATION CODE */}
+          {needsConfirmation && (
             <>
-              {/* Confirmation Code */}
               <input
                 className="
                   w-full p-3 mb-4 bg-black/40 border border-white/10 
@@ -148,7 +166,6 @@ export default function SignupPage() {
                 onChange={(e) => setCode(e.target.value)}
               />
 
-              {/* Confirm Button */}
               <button
                 onClick={handleConfirm}
                 className="
@@ -161,12 +178,12 @@ export default function SignupPage() {
             </>
           )}
 
-          {/* Error */}
+          {/* Error Message */}
           {error && (
             <p className="text-red-400 text-sm mt-4">{error}</p>
           )}
 
-          {/* Link to Login */}
+          {/* Link to login */}
           <p className="text-xs text-center text-gray-400 mt-4">
             Already have an account?{" "}
             <a href="/login" className="text-purple-400 hover:underline">
