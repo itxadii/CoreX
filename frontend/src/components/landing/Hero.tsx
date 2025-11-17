@@ -10,7 +10,7 @@ export default function Hero() {
           initial={{ opacity: 0, y: 25 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
-          className="text-5xl md:text-6xl font-bold leading-tight"
+          className="text-5xl md:text-6xl font-medium leading-tight"
         >
           The Smarter,
           <br />
@@ -23,7 +23,7 @@ export default function Hero() {
           initial={{ opacity: 0, y: 25 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.8 }}
-          className="text-gray-300 text-lg mt-6"
+          className="text-gray-300 font-serif text-lg mt-6"
         >
           Automate workflows, analyze files, and boost your productivity
           with an intelligent agent built to automate worlflows using natural language processing.
@@ -37,7 +37,7 @@ export default function Hero() {
         >
           <a
             href="/signup"
-            className="px-6 py-3 bg-purple-600 hover:bg-purple-500 rounded-lg font-medium transition"
+            className="px-6 py-3 bg-blue-500 hover:bg-blue-700 rounded-lg font-medium transition"
           >
             Early Access
           </a>

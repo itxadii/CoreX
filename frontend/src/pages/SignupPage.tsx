@@ -98,8 +98,8 @@ export default function SignupPage() {
             shadow-[0_0_40px_-10px_rgba(0,0,0,0.8)]
           "
         >
-          <h2 className="text-3xl mb-6 font-semibold text-center">
-            Create Your Account
+          <h2 className="text-3xl mb-6 font-serif text-center">
+            Create Account
           </h2>
 
           {/* STEP 1 — SIGNUP FORM */}
@@ -148,7 +148,7 @@ export default function SignupPage() {
                   py-3 rounded-lg font-medium transition-all
                 "
               >
-                Create Account
+                Submit
               </button>
             </>
           )}
