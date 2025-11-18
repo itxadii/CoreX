@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { signIn } from "aws-amplify/auth";
+import { useState, useEffect } from "react";
+import { signIn, getCurrentUser } from "aws-amplify/auth";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 
@@ -9,6 +9,20 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+
+  // ✅ correct place for useEffect
+  useEffect(() => {
+    const checkUser = async () => {
+      try {
+        await getCurrentUser();  // if user is logged in
+        navigate("/chat");       // redirect
+      } catch {
+        // user not logged in → stay on login page
+      }
+    };
+
+    checkUser();
+  }, [navigate]); // good practice to include navigate
 
   const handleSignIn = async () => {
     setError("");
@@ -45,7 +59,7 @@ export default function LoginPage() {
       {/* Gradient Overlay */}
       <div className="fixed inset-0 bg-gradient-to-br from-black/85 via-black/60 to-purple-900/40 -z-5" />
 
-      {/* Centered Auth Card */}
+      {/* Centered Card */}
       <div className="flex justify-center items-center h-full px-4">
         <motion.div
           initial={{ opacity: 0, y: 25 }}
@@ -57,12 +71,10 @@ export default function LoginPage() {
             shadow-[0_0_40px_-10px_rgba(0,0,0,0.8)]
           "
         >
-          {/* Title */}
           <h2 className="text-3xl mb-6 font-serif text-center">
             Sign in to <span className="text-sky-300">CoreX</span>
           </h2>
 
-          {/* Email */}
           <input
             type="email"
             className="
@@ -74,7 +86,6 @@ export default function LoginPage() {
             onChange={(e) => setEmail(e.target.value)}
           />
 
-          {/* Password */}
           <input
             type="password"
             className="
@@ -86,12 +97,8 @@ export default function LoginPage() {
             onChange={(e) => setPassword(e.target.value)}
           />
 
-          {/* Error */}
-          {error && (
-            <p className="text-red-400 text-sm mb-3">{error}</p>
-          )}
+          {error && <p className="text-red-400 text-sm mb-3">{error}</p>}
 
-          {/* Button */}
           <button
             onClick={handleSignIn}
             className="
@@ -102,17 +109,12 @@ export default function LoginPage() {
             Sign In
           </button>
 
-          {/* Forgot Password */}
           <p className="text-xs text-center text-gray-400 mt-3">
-            <a
-              href="/forgot-password"
-              className="text-purple-400 hover:underline"
-            >
+            <a href="/forgot-password" className="text-purple-400 hover:underline">
               Forgot password?
             </a>
           </p>
 
-          {/* Sign Up */}
           <p className="text-xs text-center text-gray-400 mt-4">
             Don't have an account?{" "}
             <a href="/signup" className="text-purple-400 hover:underline">
