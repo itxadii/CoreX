@@ -1,16 +1,34 @@
-// import { useState } from 'react';
-// import { Amplify } from 'aws-amplify';
-import { Authenticator } from '@aws-amplify/ui-react';
-import ChatPage from './pages/ChatPage';
-import '@aws-amplify/ui-react/styles.css';
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import LoginPage from "./pages/LoginPage";
+import SignupPage from "./pages/SignupPage";
+import ForgotPassword from "./pages/ForgotPassword";
+import ChatPage from "./pages/ChatPage";
+import ProtectedRoute from "./components/ProtectedRoute";
+import LandingPage from "./pages/LandingPage"
 
-
-const App = () => {
+export default function App() {
   return (
-    <Authenticator>
-      <ChatPage />
-    </Authenticator>
-  )
-}
+    <BrowserRouter>
+      <Routes>
 
-export default App
+        {/* Public routes */}
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+
+        {/* Protected route */}
+          <Route
+          path="/chat"
+          element={
+            <ProtectedRoute>
+              {({ signOut }) => <ChatPage signOut={signOut} />}
+            </ProtectedRoute>
+          }
+        />
+
+
+      </Routes>
+    </BrowserRouter>
+  );
+}

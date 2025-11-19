@@ -1,58 +1,51 @@
 import { useState } from 'react';
-import { Amplify } from 'aws-amplify';
 import Navbar from '../components/Navbar';
-import Sidebar from '../components/SideBar';
+import Sidebar from '../components/SideBar'; 
 import PromptInput from '../components/PromptInput';
 import ChatList from '../components/ChatList';
 import type { ChatMessage } from '../components/MessageBubble';
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4 } from 'uuid'; 
+import { useNavigate } from "react-router-dom";
 
-// Vite exposes them on import.meta.env
+
+// --- Access ENV Variables ---
 const USER_POOL_ID = import.meta.env.VITE_USER_POOL_ID;
 const USER_POOL_CLIENT_ID = import.meta.env.VITE_USER_POOL_CLIENT_ID;
-const DEV_API_URL = import.meta.env.VITE_API_URL;
+const API_URL = import.meta.env.VITE_API_URL;
 
-// --- 2. VALIDATE ENV VARIABLES ---
-// This prevents the app from crashing if the .env file is missing
-if (!USER_POOL_ID || !USER_POOL_CLIENT_ID || !DEV_API_URL) {
-  throw new Error("Missing environment variables. Please check your .env file and restart the dev server.");
+// This check should ideally be in main.tsx, but here is fine too.
+if (!USER_POOL_ID || !USER_POOL_CLIENT_ID || !API_URL) {
+  throw new Error("Missing environment variables. Please check your .env file");
 }
-// --- 1. CONFIGURE AMPLIFY ---
-Amplify.configure({
-  Auth: {
-    Cognito: {
-      userPoolId: USER_POOL_ID,
-      userPoolClientId: USER_POOL_CLIENT_ID,
-    }
-  }
-});
-const API_URL = DEV_API_URL;
 
-function App() {
-  
-  // --- STATE ---
+// --- 1. THIS IS YOUR CHAT PAGE COMPONENT ---
+// It now accepts a 'signOut' function as a prop.
+function ChatPage({ signOut }: { signOut?: () => void }) {
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
   const [isTempChat, setIsTempChat] = useState(false);
   const [prompt, setPrompt] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const navigate = useNavigate();
 
-  // --- HANDLERS ---
   const handleToggleSidebar = () => setIsSidebarExpanded(prev => !prev);
   const handleToggleTempChat = () => setIsTempChat(prev => !prev);
-
+  const handleSignOut = async () => {
+    try {
+      await signOut?.();     // Cognito logout
+      navigate("/");         // Go to LandingPage
+    } catch (err) {
+      console.error("Signout error:", err);
+    }
+  };
   const handleTestApi = async () => {
     if (!prompt.trim()) return;
 
     setIsLoading(true);
     const currentPrompt = prompt;
-    setPrompt(''); // Clear input immediately
+    setPrompt(''); 
 
-    const userMsg: ChatMessage = {
-      id: uuidv4(), // Use uuid
-      text: currentPrompt,
-      sender: 'user'
-    };
+    const userMsg: ChatMessage = { id: uuidv4(), text: currentPrompt, sender: 'user' };
     setMessages(prev => [...prev, userMsg]);
 
     try {
@@ -63,14 +56,9 @@ function App() {
       });
 
       const data = await response.json();
-      // Adjust 'data.response' if your API returns text in a different field
       const aiText = data.response || data.message || JSON.stringify(data, null, 2);
 
-      const aiMsg: ChatMessage = {
-        id: uuidv4(),
-        text: aiText,
-        sender: 'ai'
-      };
+      const aiMsg: ChatMessage = { id: uuidv4(), text: aiText, sender: 'ai' };
       setMessages(prev => [...prev, aiMsg]);
 
     } catch (error) {
@@ -86,36 +74,26 @@ function App() {
     }
   };
 
-  // --- RENDER ---
   return (
-    // The root div is now a simple flex container
     <div className="h-screen bg-black text-white overflow-hidden flex">
-      
-      {/* 1. SIDEBAR - Floats on top */}
-      <Sidebar expanded={isSidebarExpanded} />
+      <Sidebar expanded={isSidebarExpanded} signOut={handleSignOut} />
 
-      {/* 2. BACKDROP - Appears behind sidebar */}
       {isSidebarExpanded && (
         <div 
-          onClick={handleToggleSidebar} // Click to close
-          className="fixed inset-0 bg-black/60 z-40" // Removed lg:hidden to work on all screens
+          onClick={handleToggleSidebar} 
+          className="fixed inset-0 bg-black/60 z-40"
         />
       )}
 
-      {/* 3. MAIN CONTENT - NO MARGIN-LEFT
-          This div *always* takes up the full space.
-      */}
       <div className="flex-1 flex flex-col h-full overflow-hidden">
-        
         <Navbar 
           onToggleSidebar={handleToggleSidebar}
           isTempChat={isTempChat}
-          onToggleTempChat={handleToggleTempChat}
+          onToggleTempChat={handleToggleTempChat} 
         />
-
+        
         <div className="flex-1 flex flex-col overflow-hidden relative">
           <ChatList messages={messages} isLoading={isLoading} />
-          
           <div className="w-full p-4 bg-black/90 border-t border-zinc-800 backdrop-blur-sm">
             <div className="max-w-3xl mx-auto">
               <PromptInput
@@ -135,4 +113,4 @@ function App() {
   );
 }
 
-export default App;
+export default ChatPage;
