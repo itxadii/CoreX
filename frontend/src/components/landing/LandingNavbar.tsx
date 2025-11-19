@@ -49,18 +49,6 @@ export default function LandingNavbar() {
 
           {/* Desktop Menu */}
           <div className="hidden md:flex items-center gap-6 text-sm">
-            <a
-              href="#features"
-              className="text-gray-300 hover:text-white transition"
-            >
-              Features
-            </a>
-            <a
-              href="#usecases"
-              className="text-gray-300 hover:text-white transition"
-            >
-              Use Cases
-            </a>
             <a href="/login" className="text-gray-300 hover:text-white transition">
               Login
             </a>
@@ -106,22 +94,6 @@ export default function LandingNavbar() {
               className="md:hidden fixed top-0 left-0 w-full bg-black/95 backdrop-blur-xl border-b border-white/10 z-50 py-6 px-6"
             >
               <div className="flex flex-col gap-6 pt-10 text-lg">
-
-                <a
-                  href="#features"
-                  className="text-gray-300 hover:text-white transition"
-                  onClick={() => setMobileOpen(false)}
-                >
-                  Features
-                </a>
-
-                <a
-                  href="#usecases"
-                  className="text-gray-300 hover:text-white transition"
-                  onClick={() => setMobileOpen(false)}
-                >
-                  Use Cases
-                </a>
 
                 <a
                   href="/login"
