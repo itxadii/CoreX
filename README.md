@@ -11,6 +11,10 @@
 
 The frontend, built with React (Vite), provides an intelligent chat interface where users interact with the CoreX Agent — an AI assistant designed to process queries, invoke AWS services, and reason over real-world data.
 
+✅ : [dev deployment](https://dev.d3h4csxsp92hux.amplifyapp.com/)
+
+✅ : [prod deployment](https://main.d3h4csxsp92hux.amplifyapp.com/)
+
 ---
 
 ## 🧩 Project Vision
