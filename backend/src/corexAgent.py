@@ -1,159 +1,111 @@
 import json
 import boto3
 import os
-import requests
+import uuid
+from botocore.exceptions import ClientError
 
-# Create clients for AWS services
-ssm = boto3.client('ssm')
+# --- Clients ---
+# We use 'bedrock-agent-runtime' to talk to the high-level Agent
+agent_client = boto3.client('bedrock-agent-runtime', region_name="ap-south-1")
 
-# Get the API key from SSM Parameter Store
-# This is done *outside* the handler for performance (it's cached)
-try:
-    param = ssm.get_parameter(Name='/corex/gemini_api_key', WithDecryption=True)
-    GEMINI_API_KEY = param['Parameter']['Value']
-except Exception as e:
-    print(f"Error fetching API key from SSM: {e}")
-    GEMINI_API_KEY = None
+# --- Configuration ---
+# These names MUST match what you put in modules/lambda/main.tf
+AGENT_ID = os.environ.get('BEDROCK_AGENT_ID')
+AGENT_ALIAS_ID = os.environ.get('BEDROCK_AGENT_ALIAS_ID') # Matches Terraform
 
-# --- NEW: Whitelisted Origins ---
-# We will only allow requests from these two domains.
+# --- Whitelisted Origins (CORS) ---
 ALLOWED_ORIGINS = {
     'http://localhost:5173',
     'https://main.d3h4csxsp92hux.amplifyapp.com',
     'https://dev.d3h4csxsp92hux.amplifyapp.com'
-     # No trailing slash
 }
 
-def get_cors_headers(request_origin: str) -> dict:
-    """
-    Checks if the request origin is allowed and returns the
-    appropriate CORS headers.
-    """
+# --- Helper Functions ---
+def get_header(headers, key):
+    if not headers: return None
+    if key in headers: return headers[key]
+    key_lower = key.lower()
+    for k, v in headers.items():
+        if k.lower() == key_lower: return v
+    return None
+
+def get_cors_headers(request_origin):
     if request_origin in ALLOWED_ORIGINS:
-        # This is the key: we return the *specific* origin that asked.
         return {
             'Access-Control-Allow-Origin': request_origin,
-            'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type'
+            'Access-Control-Allow-Methods': 'POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization'
         }
-    
-    # If not an allowed origin, don't return any CORS headers
-    # or return a default one to satisfy API Gateway if needed,
-    # but the browser will block it.
     return {
-        'Access-Control-Allow-Origin': 'https://main.d3h4csxsp92hux.amplifyapp.com'
+        'Access-Control-Allow-Origin': 'https://main.d3h4csxsp92hux.amplifyapp.com',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization'
     }
 
+# --- Main Handler ---
 def handler(event, context):
-    """
-    This function receives a prompt from API Gateway,
-    calls the Gemini API, and returns the response.
-    """
-    
-    # --- NEW: CORS Handling ---
-    # Get the origin header from the request
-    # Note: 'origin' header might be lowercase
-    request_origin = event.get('headers', {}).get('origin')
-    
-    # Generate the correct CORS headers for this specific request
+    # 1. CORS Handling
+    headers = event.get('headers', {}) or {}
+    request_origin = get_header(headers, 'origin')
     cors_headers = get_cors_headers(request_origin)
 
-    # Handle CORS Preflight (OPTIONS) requests
-    http_method = event.get('httpMethod')
-    if http_method == 'OPTIONS':
-        return {
-            'statusCode': 200,
-            'headers': cors_headers,
-            'body': json.dumps({'message': 'CORS preflight OK'})
-        }
-    # --- END OF CORS ---
+    if event.get('httpMethod') == 'OPTIONS':
+        return {'statusCode': 200, 'headers': cors_headers, 'body': ''}
 
-    if not GEMINI_API_KEY:
+    # 2. Validate Configuration
+    if not AGENT_ID or not AGENT_ALIAS_ID:
+        print("Error: Bedrock Agent ID or Alias not configured in Lambda environment.")
         return {
-            "statusCode": 500,
-            "headers": cors_headers, # <--- UPDATED
-            "body": json.dumps({"error": "API Key is not configured."})
+            'statusCode': 500, 
+            'headers': cors_headers, 
+            'body': json.dumps({'error': 'Agent configuration missing'})
         }
 
-    # 1. Parse the user's prompt from the API Gateway event
+    # 3. Session Management
     try:
-        # Assumes the frontend sends a JSON: {"prompt": "Hello there"}
-        body = json.loads(event.get('body', '{}'))
-        user_prompt = body.get('prompt')
+        claims = event['requestContext']['authorizer']['claims']
+        session_id = claims['sub'] 
+    except (KeyError, TypeError):
+        # Fallback for testing without auth (or if auth bypassed)
+        session_id = str(uuid.uuid4()) 
 
-        if not user_prompt:
-            raise ValueError("Missing 'prompt' in request body")
+    # 4. Handle POST (Chat)
+    if event.get('httpMethod') == 'POST':
+        try:
+            body = json.loads(event.get('body', '{}'))
+            user_prompt = body.get('prompt')
             
-    except Exception as e:
-        return {
-            "statusCode": 400,
-            "headers": cors_headers, # <--- UPDATED
-            "body": json.dumps({"error": f"Invalid request: {str(e)}"})
-        }
+            if not user_prompt:
+                return {'statusCode': 400, 'headers': cors_headers, 'body': json.dumps({'error': 'No prompt provided'})}
 
-    # 2. Call the Gemini API
-    try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key={GEMINI_API_KEY}"
-        
-        payload = {
-            "contents": [
-                {
-                    "parts": [
-                        {"text": user_prompt}
-                    ]
-                }
-            ]
-        }
-        
-        headers = {
-            "Content-Type": "application/json"
-        }
-
-        response = requests.post(url, headers=headers, json=payload)
-        response.raise_for_status()  # Raise an exception for bad status codes
-        
-        result = response.json()
-        
-        # --- NEW: Robust Response Handling ---
-        # Check for safety blocks or empty responses from Gemini
-        if not result.get('candidates'):
-            if result.get('promptFeedback', {}).get('blockReason'):
-                block_reason = result['promptFeedback']['blockReason']
-                print(f"Prompt blocked by safety filters: {block_reason}")
-                return {"statusCode": 400, "headers": cors_headers, "body": json.dumps({"error": f"Your prompt was blocked: {block_reason}"})}
+            # --- CALL BEDROCK AGENT ---
+            print(f"Invoking Agent {AGENT_ID} (Alias: {AGENT_ALIAS_ID})")
             
-            print(f"Invalid response from Gemini: {result}")
-            return {"statusCode": 502, "headers": cors_headers, "body": json.dumps({"error": "Received an invalid response from the AI service."})}
+            response = agent_client.invoke_agent(
+                agentId=AGENT_ID,
+                agentAliasId=AGENT_ALIAS_ID,
+                sessionId=session_id,
+                inputText=user_prompt
+            )
 
-        # Extract the text response
-        text_response = result['candidates'][0]['content']['parts'][0]['text']
+            # --- Parse Stream ---
+            completion = ""
+            for event in response.get('completion'):
+                chunk = event.get('chunk')
+                if chunk:
+                    completion += chunk.get('bytes').decode('utf-8')
 
-        return {
-            "statusCode": 200,
-            "headers": cors_headers, # <--- UPDATED
-            "body": json.dumps({
-                "response": text_response
-            })
-        }
-
-    except requests.exceptions.RequestException as e:
-        print(f"Error calling Gemini API: {e}")
-        return {
-            "statusCode": 502, # Bad Gateway
-            "headers": cors_headers, # <--- UPDATED
-            "body": json.dumps({"error": f"Failed to call AI service: {str(e)}"})
-        }
-    except KeyError:
-        print(f"Error parsing Gemini response: {result}")
-        return {
-            "statusCode": 500,
-            "headers": cors_headers, # <--- UPDATED
-            "body": json.dumps({"error": "Invalid response from AI service."})
-        }
-    except Exception as e:
-        print(f"Unknown error: {e}")
-        return {
-            "statusCode": 500,
-            "headers": cors_headers, # <--- UPDATED
-            "body": json.dumps({"error": "An internal server error occurred."})
-        }
+            return {
+                'statusCode': 200,
+                'headers': cors_headers,
+                'body': json.dumps({'response': completion})
+            }
+            
+        except ClientError as e:
+            print(f"AWS ClientError: {e}")
+            return {'statusCode': 500, 'headers': cors_headers, 'body': json.dumps({'error': 'Failed to invoke agent'})}
+        except Exception as e:
+            print(f"Error: {e}")
+            return {'statusCode': 500, 'headers': cors_headers, 'body': json.dumps({'error': str(e)})}
+            
+    return {'statusCode': 405, 'headers': cors_headers, 'body': json.dumps({'error': 'Method not allowed'})}
