@@ -1,99 +1,155 @@
-import React from 'react';
-import { FiPlus, FiMic, FiArrowUp } from 'react-icons/fi'; 
+import React, { useRef } from 'react';
+import { FiMic, FiArrowUp, FiPaperclip, FiX, FiFile, FiImage } from 'react-icons/fi'; 
 
 interface PromptInputProps {
   prompt: string;
   setPrompt: (prompt: string) => void;
   onSubmit: () => void;
   isLoading?: boolean;
+  isTempMode?: boolean;
+  // File Handling Props
+  selectedFile: File | null;
+  onFileSelect: (file: File) => void;
+  onClearFile: () => void;
 }
 
 const PromptInput: React.FC<PromptInputProps> = ({ 
   prompt, 
   setPrompt, 
   onSubmit, 
-  isLoading = false 
+  isLoading = false,
+  isTempMode = false,
+  selectedFile,
+  onFileSelect,
+  onClearFile
 }) => {
-  
-  // Handles form submission on "Enter" key
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Handle Enter key: Submit if there is text OR a file selected
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      if (!isLoading && prompt.trim()) {
+      if (!isLoading && (prompt.trim() || selectedFile)) {
         onSubmit();
       }
     }
   };
 
-  // Handles form submission on button click
+  // Handle Submit button click
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!isLoading && prompt.trim()) {
+    if (!isLoading && (prompt.trim() || selectedFile)) {
       onSubmit();
     }
   };
 
+  // Handle File Selection from hidden input
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      // Limit file size to 4MB (AWS Lambda payload limit is 6MB total)
+      if (file.size > 4 * 1024 * 1024) {
+        alert("File too large. Please upload files under 4MB.");
+        return;
+      }
+      onFileSelect(file);
+    }
+  };
+
   return (
-    <form 
-      className="w-full"
-      onSubmit={handleSubmit}
-    >
-      {/* MAIN CHANGE: 
-        - This container is now 'flex' instead of 'relative'
-        - We use 'items-center' to align everything vertically
-      */}
-      <div className="flex w-full items-center bg-sky-200 rounded-full shadow-lg text-black">
+    <form className="w-full relative" onSubmit={handleSubmit}>
+      
+      {/* 1. File Preview Pill - Shows above input when file is selected */}
+      {selectedFile && (
+        <div className="absolute -top-12 left-4 flex items-center bg-zinc-800 text-white px-3 py-1.5 rounded-lg border border-zinc-700 shadow-md animate-fade-in-up z-20">
+          <span className="mr-2 text-sky-400">
+            {selectedFile.type.startsWith('image') ? <FiImage size={16} /> : <FiFile size={16} />}
+          </span>
+          <span className="text-xs max-w-[150px] truncate">{selectedFile.name}</span>
+          <button 
+            type="button" 
+            onClick={() => {
+              onClearFile();
+              // Reset file input value so same file can be selected again if needed
+              if (fileInputRef.current) fileInputRef.current.value = '';
+            }}
+            className="ml-3 text-gray-400 hover:text-white"
+          >
+            <FiX size={16} />
+          </button>
+        </div>
+      )}
+
+      {/* 2. Main Input Container */}
+      <div className={`
+        flex w-full items-center rounded-3xl shadow-lg transition-all duration-300
+        ${isTempMode 
+          ? "bg-zinc-200 border-2 border-dashed border-zinc-400 text-gray-600" // Temp Mode Style
+          : "bg-sky-200 text-black border-2 border-transparent" // Normal Style
+        }
+      `}>
         
-        {/* Left Plus Icon (as a button) */}
+        {/* Hidden File Input Element */}
+        <input 
+          type="file" 
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          accept="image/png, image/jpeg, image/webp, application/pdf"
+          className="hidden"
+        />
+
+        {/* Paperclip / Attachment Button */}
         <button 
           type="button" 
-          className="p-3 rounded-full hover:bg-gray-100 text-gray-600"
-          aria-label="New chat"
+          onClick={() => fileInputRef.current?.click()}
+          className="p-3 pl-4 rounded-l-3xl hover:bg-black/5 transition-colors"
+          aria-label="Attach file"
+          disabled={isLoading}
         >
-          <FiPlus size={20} />
+          <FiPaperclip size={20} className={isTempMode ? "text-gray-500" : "text-gray-700"} />
         </button>
 
-        {/* Prompt Input */}
+        {/* Text Input Field */}
         <input
           type="text"
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="How can I help you today?" // Placeholder from your image
+          placeholder={isTempMode ? "Temporary Chat enabled..." : "Ask a question or upload a doc..."}
           disabled={isLoading}
-          className="
-            flex-1 w-full py-3.5             /* flex-1 is the magic */
+          className={`
+            flex-1 w-full py-3.5 px-2
             bg-transparent 
-            text-gray-800 placeholder:text-gray-600
             focus:outline-none
             text-sm md:text-base
-          "
+            ${isTempMode ? "placeholder:text-gray-500 text-gray-700" : "placeholder:text-gray-600 text-gray-800"}
+          `}
         />
 
-        {/* Right Icons Container (no longer absolute) */}
+        {/* Right Side Icons */}
         <div className="flex items-center pr-2.5">
-          {/* Mic Icon */}
+          {/* Mic Button */}
           <button 
             type="button" 
-            className="p-2 rounded-full hover:bg-gray-100 text-gray-600"
-            aria-label="Use microphone"
+            className="p-2 rounded-full hover:bg-black/5 transition-colors"
           >
-            <FiMic size={20} />
+            <FiMic size={20} className={isTempMode ? "text-gray-500" : "text-gray-700"} />
           </button>
 
           {/* Send Button */}
           <button
             type="submit"
-            disabled={isLoading || !prompt.trim()}
-            className="
-              p-2.5 bg-gray-100 rounded-full
-              text-gray-700
-              hover:bg-gray-200
+            disabled={isLoading || (!prompt.trim() && !selectedFile)}
+            className={`
+              p-2.5 rounded-full
               focus:outline-none
               disabled:opacity-50 disabled:cursor-not-allowed
-              ml-1
-            "
-            aria-label="Send prompt"
+              ml-1 transition-colors
+              ${isTempMode 
+                ? "bg-zinc-400 text-white hover:bg-zinc-500" 
+                : "bg-gray-100 text-gray-700 hover:bg-white" 
+              }
+            `}
           >
             <FiArrowUp size={20} />
           </button>

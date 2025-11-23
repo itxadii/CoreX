@@ -3,7 +3,7 @@ import Navbar from '../components/Navbar';
 import Sidebar from '../components/SideBar'; 
 import PromptInput from '../components/PromptInput';
 import ChatList from '../components/ChatList';
-import Particles from '../components/Particles'; // Make sure to import this
+import Particles from '../components/Particles'; 
 import type { ChatMessage } from '../components/MessageBubble';
 import { v4 as uuidv4 } from 'uuid'; 
 import { useNavigate } from "react-router-dom";
@@ -11,14 +11,33 @@ import { fetchAuthSession } from 'aws-amplify/auth';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
+// Helper: Convert File to Base64 (for AWS Lambda/Bedrock payload)
+const convertFileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => {
+      // Remove the Data-URI prefix (e.g., "data:image/png;base64,")
+      const result = reader.result as string;
+      const base64String = result.split(',')[1]; 
+      resolve(base64String);
+    };
+    reader.onerror = (error) => reject(error);
+  });
+};
+
 function ChatPage({ signOut }: { signOut?: () => void }) {
+  // UI State
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
   const [isTempChat, setIsTempChat] = useState(false);
-  const [prompt, setPrompt] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Data State
+  const [prompt, setPrompt] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   
-  // --- History Management ---
+  // History State
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [fullHistory, setFullHistory] = useState<any[]>([]); 
 
@@ -36,20 +55,18 @@ function ChatPage({ signOut }: { signOut?: () => void }) {
     }
   };
 
-  // --- Logic to Handle Sidebar Selection ---
+  // --- Sidebar & History Logic ---
   const handleHistoryLoaded = (rawHistory: any[]) => {
     setFullHistory(rawHistory);
   };
 
   const handleSelectChat = (sessionId: string) => {
-    // If we switch chats, turn off temp mode
-    if (isTempChat) setIsTempChat(false); 
+    if (isTempChat) setIsTempChat(false); // Disable temp mode if loading history
 
     setCurrentSessionId(sessionId);
     setIsSidebarExpanded(false);
     
     const sessionMessages = fullHistory.filter((item: any) => item.SessionId === sessionId);
-    
     // Sort chronologically
     sessionMessages.sort((a: any, b: any) => new Date(a.Timestamp).getTime() - new Date(b.Timestamp).getTime());
 
@@ -66,44 +83,70 @@ function ChatPage({ signOut }: { signOut?: () => void }) {
     setCurrentSessionId(null);
     setMessages([]);
     setIsSidebarExpanded(false);
-    // We keep isTempChat state as is, or you can reset it: setIsTempChat(false);
+    setSelectedFile(null);
   };
 
-  // --- API Call ---
+  // --- Main API Logic ---
   const handleTestApi = async () => {
-    if (!prompt.trim()) return;
+    // Prevent empty submit (must have text OR file)
+    if (!prompt.trim() && !selectedFile) return;
 
     setIsLoading(true);
+    
+    // Capture values before clearing state
     const currentPrompt = prompt;
+    const currentFile = selectedFile;
+    
+    // Clear inputs immediately
     setPrompt(''); 
+    setSelectedFile(null);
 
-    const userMsg: ChatMessage = { id: uuidv4(), text: currentPrompt, sender: 'user' };
+    // Optimistic UI Update: Show message immediately
+    const displayMsg = currentFile 
+        ? `[Attached: ${currentFile.name}] ${currentPrompt}` 
+        : currentPrompt;
+        
+    const userMsg: ChatMessage = { id: uuidv4(), text: displayMsg, sender: 'user' };
     setMessages(prev => [...prev, userMsg]);
 
     try {
       const session = await fetchAuthSession();
       const token = session.tokens?.idToken?.toString();
 
-      // LOGIC ADJUSTMENT: If isTempChat is true, do not send the sessionId
-      // This forces the backend to treat it as a one-off or new session without linking history
+      // Determine Session ID (Pass NULL if temp mode)
       const effectiveSessionId = isTempChat ? null : currentSessionId;
 
+      // Prepare Request Body
+      let requestBody: any = {
+        prompt: currentPrompt,
+        sessionId: effectiveSessionId,
+        isTemporary: isTempChat // Flag for Backend
+      };
+
+      // Handle File Conversion
+      if (currentFile) {
+        const base64Data = await convertFileToBase64(currentFile);
+        requestBody.file = {
+          name: currentFile.name,
+          type: currentFile.type,
+          data: base64Data
+        };
+      }
+
+      // API Call
       const response = await fetch(API_URL, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
           'Authorization': token || '' 
         },
-        body: JSON.stringify({ 
-          prompt: currentPrompt, 
-          sessionId: effectiveSessionId 
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       const data = await response.json();
       const aiText = data.response || "No response";
 
-      // LOGIC ADJUSTMENT: Only save the session ID if we are NOT in temp mode
+      // Save Session ID if new and NOT temporary
       if (!isTempChat && !currentSessionId && data.sessionId) {
         setCurrentSessionId(data.sessionId);
       }
@@ -123,9 +166,8 @@ function ChatPage({ signOut }: { signOut?: () => void }) {
   return (
     <div className="relative h-screen w-full bg-black text-white overflow-hidden flex">
       
-      {/* 1. BACKGROUND LAYER (Particles) */}
-      {/* Absolute position, negative z-index to sit behind text, but inside the container */}
-      <div className="absolute inset-0 z-0">
+      {/* 1. BACKGROUND PARTICLES (Z-Index 0) */}
+      <div className="absolute inset-0 z-0 pointer-events-none">
         <Particles
           className="absolute inset-0"
           quantity={100}
@@ -134,10 +176,8 @@ function ChatPage({ signOut }: { signOut?: () => void }) {
         />
       </div>
 
-      {/* 2. INTERFACE LAYER (Sidebar + Chat) */}
-      {/* z-10 ensures this sits ON TOP of the particles */}
+      {/* 2. MAIN INTERFACE (Z-Index 10) */}
       <div className="z-10 flex w-full h-full relative">
-        
         <Sidebar 
           expanded={isSidebarExpanded} 
           signOut={handleSignOut}
@@ -146,7 +186,7 @@ function ChatPage({ signOut }: { signOut?: () => void }) {
           onHistoryLoaded={handleHistoryLoaded}
         />
 
-        {/* Mobile Overlay for Sidebar */}
+        {/* Mobile Sidebar Overlay */}
         {isSidebarExpanded && (
           <div 
             onClick={handleToggleSidebar} 
@@ -154,6 +194,7 @@ function ChatPage({ signOut }: { signOut?: () => void }) {
           />
         )}
 
+        {/* Chat Content */}
         <div className="flex-1 flex flex-col h-full overflow-hidden relative">
           <Navbar 
             onToggleSidebar={handleToggleSidebar}
@@ -164,7 +205,7 @@ function ChatPage({ signOut }: { signOut?: () => void }) {
           <div className="flex-1 flex flex-col overflow-hidden relative">
             <ChatList messages={messages} isLoading={isLoading} />
             
-            {/* Input Area - Added backdrop blur to make text readable over particles */}
+            {/* Input Area (Backdrop Blur for readability over particles) */}
             <div className="w-full p-4 bg-black/80 border-t border-zinc-800 backdrop-blur-md">
               <div className="max-w-3xl mx-auto">
                 <PromptInput
@@ -172,6 +213,10 @@ function ChatPage({ signOut }: { signOut?: () => void }) {
                   setPrompt={setPrompt}
                   onSubmit={handleTestApi}
                   isLoading={isLoading}
+                  isTempMode={isTempChat}
+                  selectedFile={selectedFile}
+                  onFileSelect={setSelectedFile}
+                  onClearFile={() => setSelectedFile(null)}
                 />
                 <p className="text-xs text-center text-gray-500 mt-2">
                   CoreX can make mistakes. Consider checking important information.
