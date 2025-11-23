@@ -3,6 +3,7 @@ import Navbar from '../components/Navbar';
 import Sidebar from '../components/SideBar'; 
 import PromptInput from '../components/PromptInput';
 import ChatList from '../components/ChatList';
+import Particles from '../components/Particles'; // Make sure to import this
 import type { ChatMessage } from '../components/MessageBubble';
 import { v4 as uuidv4 } from 'uuid'; 
 import { useNavigate } from "react-router-dom";
@@ -17,7 +18,7 @@ function ChatPage({ signOut }: { signOut?: () => void }) {
   const [isLoading, setIsLoading] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   
-  // --- New State for History Management ---
+  // --- History Management ---
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [fullHistory, setFullHistory] = useState<any[]>([]); 
 
@@ -41,17 +42,17 @@ function ChatPage({ signOut }: { signOut?: () => void }) {
   };
 
   const handleSelectChat = (sessionId: string) => {
-    // 1. Set the active session
+    // If we switch chats, turn off temp mode
+    if (isTempChat) setIsTempChat(false); 
+
     setCurrentSessionId(sessionId);
-    setIsSidebarExpanded(false); // Close sidebar on mobile
+    setIsSidebarExpanded(false);
     
-    // 2. Filter history for this session
     const sessionMessages = fullHistory.filter((item: any) => item.SessionId === sessionId);
     
-    // 3. Sort chronologically
+    // Sort chronologically
     sessionMessages.sort((a: any, b: any) => new Date(a.Timestamp).getTime() - new Date(b.Timestamp).getTime());
 
-    // 4. Convert to UI format
     const uiMessages: ChatMessage[] = [];
     sessionMessages.forEach((item: any) => {
       uiMessages.push({ id: uuidv4(), text: item.UserMessage, sender: 'user' });
@@ -65,6 +66,7 @@ function ChatPage({ signOut }: { signOut?: () => void }) {
     setCurrentSessionId(null);
     setMessages([]);
     setIsSidebarExpanded(false);
+    // We keep isTempChat state as is, or you can reset it: setIsTempChat(false);
   };
 
   // --- API Call ---
@@ -82,24 +84,27 @@ function ChatPage({ signOut }: { signOut?: () => void }) {
       const session = await fetchAuthSession();
       const token = session.tokens?.idToken?.toString();
 
+      // LOGIC ADJUSTMENT: If isTempChat is true, do not send the sessionId
+      // This forces the backend to treat it as a one-off or new session without linking history
+      const effectiveSessionId = isTempChat ? null : currentSessionId;
+
       const response = await fetch(API_URL, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
           'Authorization': token || '' 
         },
-        // Send the currentSessionId so backend knows to append to this chat
         body: JSON.stringify({ 
           prompt: currentPrompt, 
-          sessionId: currentSessionId 
+          sessionId: effectiveSessionId 
         }),
       });
 
       const data = await response.json();
       const aiText = data.response || "No response";
 
-      // If backend returned a NEW sessionId (first msg of new chat), save it
-      if (!currentSessionId && data.sessionId) {
+      // LOGIC ADJUSTMENT: Only save the session ID if we are NOT in temp mode
+      if (!isTempChat && !currentSessionId && data.sessionId) {
         setCurrentSessionId(data.sessionId);
       }
 
@@ -116,55 +121,66 @@ function ChatPage({ signOut }: { signOut?: () => void }) {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-black text-white">
-      {/* background video (put file in public/hero-bg.mp4) */}
-      <video
-        autoPlay
-        loop
-        muted
-        playsInline
-        className="fixed top-0 left-0 w-full h-full object-cover"
-      >
-        <source src="/chatpage-bg.mp4" type="video/mp4" />
-      </video>
-    <div className="h-screen bg-black text-white overflow-hidden flex">
-      <Sidebar 
-        expanded={isSidebarExpanded} 
-        signOut={handleSignOut}
-        onSelectChat={handleSelectChat}
-        onNewChat={handleNewChat}
-        onHistoryLoaded={handleHistoryLoaded} // <-- Pass this down
-      />
-
-      {isSidebarExpanded && (
-        <div onClick={handleToggleSidebar} className="fixed inset-0 bg-black/60 z-40" />
-      )}
-
-      <div className="flex-1 flex flex-col h-full overflow-hidden">
-        <Navbar 
-          onToggleSidebar={handleToggleSidebar}
-          isTempChat={isTempChat}
-          onToggleTempChat={handleToggleTempChat} 
+    <div className="relative h-screen w-full bg-black text-white overflow-hidden flex">
+      
+      {/* 1. BACKGROUND LAYER (Particles) */}
+      {/* Absolute position, negative z-index to sit behind text, but inside the container */}
+      <div className="absolute inset-0 z-0">
+        <Particles
+          className="absolute inset-0"
+          quantity={100}
+          ease={80}
+          refresh={false}
         />
+      </div>
+
+      {/* 2. INTERFACE LAYER (Sidebar + Chat) */}
+      {/* z-10 ensures this sits ON TOP of the particles */}
+      <div className="z-10 flex w-full h-full relative">
         
-        <div className="flex-1 flex flex-col overflow-hidden relative">
-          <ChatList messages={messages} isLoading={isLoading} />
-          <div className="w-full p-4 bg-black/90 border-t border-zinc-800 backdrop-blur-sm">
-            <div className="max-w-3xl mx-auto">
-              <PromptInput
-                prompt={prompt}
-                setPrompt={setPrompt}
-                onSubmit={handleTestApi}
-                isLoading={isLoading}
-              />
-              <p className="text-xs text-center text-gray-500 mt-2">
-                CoreX can make mistakes. Consider checking important information.
-              </p>
+        <Sidebar 
+          expanded={isSidebarExpanded} 
+          signOut={handleSignOut}
+          onSelectChat={handleSelectChat}
+          onNewChat={handleNewChat}
+          onHistoryLoaded={handleHistoryLoaded}
+        />
+
+        {/* Mobile Overlay for Sidebar */}
+        {isSidebarExpanded && (
+          <div 
+            onClick={handleToggleSidebar} 
+            className="fixed inset-0 bg-black/60 z-40 md:hidden" 
+          />
+        )}
+
+        <div className="flex-1 flex flex-col h-full overflow-hidden relative">
+          <Navbar 
+            onToggleSidebar={handleToggleSidebar}
+            isTempChat={isTempChat}
+            onToggleTempChat={handleToggleTempChat} 
+          />
+          
+          <div className="flex-1 flex flex-col overflow-hidden relative">
+            <ChatList messages={messages} isLoading={isLoading} />
+            
+            {/* Input Area - Added backdrop blur to make text readable over particles */}
+            <div className="w-full p-4 bg-black/80 border-t border-zinc-800 backdrop-blur-md">
+              <div className="max-w-3xl mx-auto">
+                <PromptInput
+                  prompt={prompt}
+                  setPrompt={setPrompt}
+                  onSubmit={handleTestApi}
+                  isLoading={isLoading}
+                />
+                <p className="text-xs text-center text-gray-500 mt-2">
+                  CoreX can make mistakes. Consider checking important information.
+                </p>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
     </div>
   );
 }
