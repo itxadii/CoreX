@@ -13,7 +13,7 @@ dynamodb = boto3.resource('dynamodb', region_name="ap-south-1")
 # --- Configuration ---
 AGENT_ID = os.environ.get('BEDROCK_AGENT_ID')
 AGENT_ALIAS_ID = os.environ.get('BEDROCK_AGENT_ALIAS_ID')
-TABLE_NAME = os.environ.get('DYNAMODB_TABLE_NAME') # Ensure this is passed in Lambda Env Vars
+TABLE_NAME = os.environ.get('DYNAMODB_TABLE_NAME') 
 
 # --- Whitelisted Origins ---
 ALLOWED_ORIGINS = {
@@ -35,12 +35,12 @@ def get_cors_headers(request_origin):
     if request_origin in ALLOWED_ORIGINS:
         return {
             'Access-Control-Allow-Origin': request_origin,
-            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', # Added GET
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
             'Access-Control-Allow-Headers': 'Content-Type, Authorization'
         }
     return {
         'Access-Control-Allow-Origin': 'https://main.d3h4csxsp92hux.amplifyapp.com',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', # Added GET
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization'
     }
 
@@ -56,7 +56,6 @@ def get_user_id(event):
 
 # --- Main Handler ---
 def handler(event, context):
-    # 1. CORS Handling
     headers = event.get('headers', {}) or {}
     request_origin = get_header(headers, 'origin')
     cors_headers = get_cors_headers(request_origin)
@@ -64,15 +63,11 @@ def handler(event, context):
     if event.get('httpMethod') == 'OPTIONS':
         return {'statusCode': 200, 'headers': cors_headers, 'body': ''}
 
-    # 2. Validate Config
     if not AGENT_ID or not AGENT_ALIAS_ID or not TABLE_NAME:
-        return {'statusCode': 500, 'headers': cors_headers, 'body': json.dumps({'error': 'Server configuration (Agent or DB) missing'})}
+        return {'statusCode': 500, 'headers': cors_headers, 'body': json.dumps({'error': 'Server configuration missing'})}
 
-    # 3. Get User ID (Centralized)
     user_id = get_user_id(event)
-    # Fallback for testing/unauth (Use UUID if no Cognito, but prefer Cognito)
-    session_id = user_id if user_id else str(uuid.uuid4())
-
+    
     method = event.get('httpMethod')
 
     # ==================================================================
@@ -80,19 +75,15 @@ def handler(event, context):
     # ==================================================================
     if method == 'GET':
         if not user_id:
-            return {'statusCode': 401, 'headers': cors_headers, 'body': json.dumps({'error': 'Unauthorized: Login required to fetch history'})}
+            return {'statusCode': 401, 'headers': cors_headers, 'body': json.dumps({'error': 'Unauthorized'})}
 
         try:
             table = dynamodb.Table(TABLE_NAME)
             response = table.query(
                 KeyConditionExpression=Key('UserId').eq(user_id),
-                # ScanIndexForward=True means "Oldest to Newest". 
-                # Set to False if you want "Newest to Oldest".
-                ScanIndexForward=True 
+                ScanIndexForward=True # Oldest first
             )
-            
             items = response.get('Items', [])
-            
             return {
                 'statusCode': 200,
                 'headers': cors_headers,
@@ -103,23 +94,29 @@ def handler(event, context):
             return {'statusCode': 500, 'headers': cors_headers, 'body': json.dumps({'error': str(e)})}
 
     # ==================================================================
-    # HANDLE POST: Chat with Agent & Save History
+    # HANDLE POST: Chat
     # ==================================================================
     elif method == 'POST':
         try:
             body = json.loads(event.get('body', '{}'))
             user_prompt = body.get('prompt')
             
+            # --- CRITICAL FIX: Use SessionID from Frontend if available ---
+            session_id = body.get('sessionId')
+            if not session_id:
+                session_id = str(uuid.uuid4())
+            # -------------------------------------------------------------
+
             if not user_prompt:
                 return {'statusCode': 400, 'headers': cors_headers, 'body': json.dumps({'error': 'No prompt provided'})}
 
-            print(f"Invoking Agent {AGENT_ID} (Alias: {AGENT_ALIAS_ID}) with Session {session_id}")
+            print(f"Invoking Agent {AGENT_ID} Session {session_id}")
             
             # A. Invoke Bedrock
             response = agent_client.invoke_agent(
                 agentId=AGENT_ID,
                 agentAliasId=AGENT_ALIAS_ID,
-                sessionId=session_id, # Using Cognito Sub keeps memory persistent across devices
+                sessionId=session_id,
                 inputText=user_prompt,
                 enableTrace=False
             )
@@ -130,32 +127,31 @@ def handler(event, context):
                 if chunk:
                     completion += chunk.get('bytes').decode('utf-8')
 
-            # B. Save to DynamoDB (Only if we have a valid User ID)
+            # B. Save to DynamoDB
             if user_id:
                 try:
                     table = dynamodb.Table(TABLE_NAME)
                     timestamp = datetime.datetime.utcnow().isoformat()
-                    
                     table.put_item(Item={
                         'UserId': user_id,
                         'Timestamp': timestamp,
+                        'SessionId': session_id, # Must save this!
                         'UserMessage': user_prompt,
-                        'AgentResponse': completion,
-                        'SessionId': session_id
+                        'AgentResponse': completion
                     })
                 except Exception as db_err:
-                    # Log error but don't fail the chat request if saving fails
-                    print(f"Warning: Failed to save chat history: {db_err}")
+                    print(f"Warning: DB Save failed: {db_err}")
 
             return {
                 'statusCode': 200,
                 'headers': cors_headers,
-                'body': json.dumps({'response': completion})
+                # Return sessionId so frontend can lock onto it
+                'body': json.dumps({'response': completion, 'sessionId': session_id}) 
             }
             
         except ClientError as e:
             print(f"AWS ClientError: {e}")
-            return {'statusCode': 500, 'headers': cors_headers, 'body': json.dumps({'error': f'Failed to invoke agent: {str(e)}'})}
+            return {'statusCode': 500, 'headers': cors_headers, 'body': json.dumps({'error': f'AWS Error: {str(e)}'})}
         except Exception as e:
             print(f"General Error: {e}")
             return {'statusCode': 500, 'headers': cors_headers, 'body': json.dumps({'error': f"Internal Error: {str(e)}", 'type': type(e).__name__})}
