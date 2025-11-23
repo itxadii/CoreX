@@ -116,6 +116,17 @@ function ChatPage({ signOut }: { signOut?: () => void }) {
   };
 
   return (
+    <div className="relative min-h-screen overflow-hidden bg-black text-white">
+      {/* background video (put file in public/hero-bg.mp4) */}
+      <video
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="fixed top-0 left-0 w-full h-full object-cover"
+      >
+        <source src="/chatpage-bg.mp4" type="video/mp4" />
+      </video>
     <div className="h-screen bg-black text-white overflow-hidden flex">
       <Sidebar 
         expanded={isSidebarExpanded} 
@@ -153,6 +164,7 @@ function ChatPage({ signOut }: { signOut?: () => void }) {
           </div>
         </div>
       </div>
+    </div>
     </div>
   );
 }

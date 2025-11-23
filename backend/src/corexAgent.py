@@ -4,7 +4,7 @@ import os
 import uuid
 import datetime
 from botocore.exceptions import ClientError
-from boto3.dynamodb.conditions import Key
+from boto3.dynamodb.conditions import Key, Attr
 
 # --- Clients ---
 agent_client = boto3.client('bedrock-agent-runtime', region_name="ap-south-1")
@@ -54,6 +54,37 @@ def get_user_id(event):
         return None
     return None
 
+def get_recent_history(user_id, session_id, limit=5):
+    """Fetches the last few messages for this session to give the Agent context"""
+    try:
+        table = dynamodb.Table(TABLE_NAME)
+        
+        # Query items for this User
+        response = table.query(
+            KeyConditionExpression=Key('UserId').eq(user_id),
+            FilterExpression=Attr('SessionId').eq(session_id),
+            ScanIndexForward=False # Get newest first (to limit efficiently)
+        )
+        
+        items = response.get('Items', [])
+        # Take the top 'limit' items (which are the newest)
+        recent_items = items[:limit]
+        
+        # Reverse them back so they are in chronological order (Oldest -> Newest)
+        recent_items.reverse()
+        
+        history_text = ""
+        for item in recent_items:
+            u_msg = item.get('UserMessage', '')
+            a_msg = item.get('AgentResponse', '')
+            if u_msg: history_text += f"User: {u_msg}\n"
+            if a_msg: history_text += f"Agent: {a_msg}\n"
+            
+        return history_text
+    except Exception as e:
+        print(f"Error fetching context: {e}")
+        return ""
+
 # --- Main Handler ---
 def handler(event, context):
     headers = event.get('headers', {}) or {}
@@ -67,7 +98,6 @@ def handler(event, context):
         return {'statusCode': 500, 'headers': cors_headers, 'body': json.dumps({'error': 'Server configuration missing'})}
 
     user_id = get_user_id(event)
-    
     method = event.get('httpMethod')
 
     # ==================================================================
@@ -81,7 +111,7 @@ def handler(event, context):
             table = dynamodb.Table(TABLE_NAME)
             response = table.query(
                 KeyConditionExpression=Key('UserId').eq(user_id),
-                ScanIndexForward=True # Oldest first
+                ScanIndexForward=True 
             )
             items = response.get('Items', [])
             return {
@@ -90,7 +120,6 @@ def handler(event, context):
                 'body': json.dumps({'history': items})
             }
         except Exception as e:
-            print(f"DynamoDB Error: {e}")
             return {'statusCode': 500, 'headers': cors_headers, 'body': json.dumps({'error': str(e)})}
 
     # ==================================================================
@@ -100,24 +129,38 @@ def handler(event, context):
         try:
             body = json.loads(event.get('body', '{}'))
             user_prompt = body.get('prompt')
-            
-            # --- CRITICAL FIX: Use SessionID from Frontend if available ---
             session_id = body.get('sessionId')
+            
+            # Create new session if none provided
             if not session_id:
                 session_id = str(uuid.uuid4())
-            # -------------------------------------------------------------
 
             if not user_prompt:
                 return {'statusCode': 400, 'headers': cors_headers, 'body': json.dumps({'error': 'No prompt provided'})}
 
-            print(f"Invoking Agent {AGENT_ID} Session {session_id}")
+            # --- CONTEXT INJECTION START ---
+            final_prompt = user_prompt
+            if user_id:
+                # Get last 6 interactions (approx 12 messages)
+                history_context = get_recent_history(user_id, session_id, limit=6)
+                
+                if history_context:
+                    # We wrap the context in a clear instruction for the model
+                    final_prompt = (
+                        f"Here is the recent conversation history for context:\n"
+                        f"{history_context}\n"
+                        f"Current User Input: {user_prompt}"
+                    )
             
-            # A. Invoke Bedrock
+            print(f"Invoking Agent {AGENT_ID} | Session {session_id} | Context Length: {len(final_prompt)}")
+            # --- CONTEXT INJECTION END ---
+
+            # A. Invoke Bedrock with the AUGMENTED prompt
             response = agent_client.invoke_agent(
                 agentId=AGENT_ID,
                 agentAliasId=AGENT_ALIAS_ID,
                 sessionId=session_id,
-                inputText=user_prompt,
+                inputText=final_prompt, # Send the prompt + history
                 enableTrace=False
             )
 
@@ -128,6 +171,7 @@ def handler(event, context):
                     completion += chunk.get('bytes').decode('utf-8')
 
             # B. Save to DynamoDB
+            # IMPORTANT: We save the ORIGINAL user_prompt, not the huge augmented one.
             if user_id:
                 try:
                     table = dynamodb.Table(TABLE_NAME)
@@ -135,8 +179,8 @@ def handler(event, context):
                     table.put_item(Item={
                         'UserId': user_id,
                         'Timestamp': timestamp,
-                        'SessionId': session_id, # Must save this!
-                        'UserMessage': user_prompt,
+                        'SessionId': session_id,
+                        'UserMessage': user_prompt, # Save only what user typed
                         'AgentResponse': completion
                     })
                 except Exception as db_err:
@@ -145,7 +189,6 @@ def handler(event, context):
             return {
                 'statusCode': 200,
                 'headers': cors_headers,
-                # Return sessionId so frontend can lock onto it
                 'body': json.dumps({'response': completion, 'sessionId': session_id}) 
             }
             
