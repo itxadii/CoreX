@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { signUp, confirmSignUp } from "aws-amplify/auth";
+import { signUp, confirmSignUp, resendSignUpCode } from "aws-amplify/auth"; // 👈 Added resendSignUpCode
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 
@@ -14,7 +14,7 @@ export default function SignupPage() {
   const [needsConfirmation, setNeedsConfirmation] = useState(false);
   const [error, setError] = useState("");
 
-  // 🔥 RESTORE STATE WHEN USER RETURNS (fixes mobile page reload)
+  // Restore state on load (for mobile minimize/refresh)
   useEffect(() => {
     const savedEmail = localStorage.getItem("pendingSignupEmail");
     const savedNeedsConfirm = localStorage.getItem("needsConfirmation");
@@ -40,26 +40,41 @@ export default function SignupPage() {
         },
       });
 
-      // 🔥 Save state so mobile refresh doesn't kick user out
-      localStorage.setItem("pendingSignupEmail", email);
-      localStorage.setItem("needsConfirmation", "true");
-
-      setNeedsConfirmation(true);
+      // Success: Move to OTP
+      startConfirmationFlow();
+      
     } catch (err: any) {
-      setError(err.message || "Signup failed");
+      // 🔥 FIX: If user exists, just resend code and move to OTP screen
+      if (err.name === "UsernameExistsException" || err.message.includes("exists")) {
+        try {
+          await resendSignUpCode({ username: email });
+          startConfirmationFlow();
+          alert("Account already exists. A new code has been sent to your email.");
+        } catch (resendErr: any) {
+          setError(resendErr.message);
+        }
+      } else {
+        setError(err.message || "Signup failed");
+      }
     }
+  };
+
+  // Helper to save state and switch screens
+  const startConfirmationFlow = () => {
+    localStorage.setItem("pendingSignupEmail", email);
+    localStorage.setItem("needsConfirmation", "true");
+    setNeedsConfirmation(true);
   };
 
   const handleConfirm = async () => {
     setError("");
-
     try {
       await confirmSignUp({
         username: email,
         confirmationCode: code,
       });
 
-      // 🔥 Clear storage after success
+      // Clear storage after success
       localStorage.removeItem("pendingSignupEmail");
       localStorage.removeItem("needsConfirmation");
 
@@ -69,9 +84,28 @@ export default function SignupPage() {
     }
   };
 
+  const handleResendCode = async () => {
+    setError("");
+    try {
+      await resendSignUpCode({ username: email });
+      alert(`Code resent to ${email}`);
+    } catch (err: any) {
+      setError(err.message || "Failed to resend code");
+    }
+  };
+
+  const handleBackToSignup = () => {
+    // Clear storage so we don't get stuck here on reload
+    localStorage.removeItem("pendingSignupEmail");
+    localStorage.removeItem("needsConfirmation");
+    
+    setNeedsConfirmation(false);
+    setError("");
+    setCode("");
+  };
+
   return (
     <div className="relative w-full h-screen overflow-hidden text-white">
-
       {/* Background Video */}
       <video
         autoPlay
@@ -105,48 +139,30 @@ export default function SignupPage() {
           {/* STEP 1 — SIGNUP FORM */}
           {!needsConfirmation && (
             <>
-              {/* Email */}
               <input
                 type="email"
-                className="
-                  w-full p-3 mb-4 bg-black/40 border border-white/10 
-                  rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500
-                "
+                className="w-full p-3 mb-4 bg-black/40 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                 placeholder="Enter your email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
-
-              {/* Password */}
               <input
                 type="password"
-                className="
-                  w-full p-3 mb-4 bg-black/40 border border-white/10 
-                  rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500
-                "
+                className="w-full p-3 mb-4 bg-black/40 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                 placeholder="Create password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
-
-              {/* Confirm Password */}
               <input
                 type="password"
-                className="
-                  w-full p-3 mb-4 bg-black/40 border border-white/10 
-                  rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500
-                "
+                className="w-full p-3 mb-4 bg-black/40 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                 placeholder="Confirm password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
               />
-
               <button
                 onClick={handleSignup}
-                className="
-                  w-full bg-purple-600 hover:bg-purple-500 
-                  py-3 rounded-lg font-medium transition-all
-                "
+                className="w-full bg-purple-600 hover:bg-purple-500 py-3 rounded-lg font-medium transition-all"
               >
                 Submit
               </button>
@@ -156,11 +172,12 @@ export default function SignupPage() {
           {/* STEP 2 — ENTER CONFIRMATION CODE */}
           {needsConfirmation && (
             <>
+              <div className="text-sm text-center mb-4 text-gray-300">
+                Code sent to <span className="text-purple-300">{email}</span>
+              </div>
+
               <input
-                className="
-                  w-full p-3 mb-4 bg-black/40 border border-white/10 
-                  rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500
-                "
+                className="w-full p-3 mb-4 bg-black/40 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                 placeholder="Enter confirmation code"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
@@ -168,19 +185,34 @@ export default function SignupPage() {
 
               <button
                 onClick={handleConfirm}
-                className="
-                  w-full bg-purple-600 hover:bg-purple-500 
-                  py-3 rounded-lg font-medium transition-all
-                "
+                className="w-full bg-purple-600 hover:bg-purple-500 py-3 rounded-lg font-medium transition-all mb-3"
               >
                 Confirm
               </button>
+
+              <div className="flex justify-between mt-4 text-sm">
+                 {/* Manually go back */}
+                <button
+                  onClick={handleBackToSignup}
+                  className="text-gray-400 hover:text-white transition-colors"
+                >
+                  ← Change Email
+                </button>
+                
+                 {/* Resend Code Button */}
+                <button
+                  onClick={handleResendCode}
+                  className="text-purple-400 hover:text-purple-300 transition-colors"
+                >
+                  Resend Code
+                </button>
+              </div>
             </>
           )}
 
           {/* Error Message */}
           {error && (
-            <p className="text-red-400 text-sm mt-4">{error}</p>
+            <p className="text-red-400 text-sm mt-4 text-center">{error}</p>
           )}
 
           {/* Link to login */}
