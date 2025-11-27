@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { signUp, confirmSignUp, resendSignUpCode } from "aws-amplify/auth"; // 👈 Added resendSignUpCode
+import { signUp, confirmSignUp, resendSignUpCode, signInWithRedirect } from "aws-amplify/auth";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import { FaGoogle } from "react-icons/fa";
 
 export default function SignupPage() {
   const navigate = useNavigate();
@@ -14,7 +15,7 @@ export default function SignupPage() {
   const [needsConfirmation, setNeedsConfirmation] = useState(false);
   const [error, setError] = useState("");
 
-  // Restore state on load (for mobile minimize/refresh)
+  // Restore state on load
   useEffect(() => {
     const savedEmail = localStorage.getItem("pendingSignupEmail");
     const savedNeedsConfirm = localStorage.getItem("needsConfirmation");
@@ -22,6 +23,17 @@ export default function SignupPage() {
     if (savedEmail) setEmail(savedEmail);
     if (savedNeedsConfirm === "true") setNeedsConfirmation(true);
   }, []);
+
+  // --- GOOGLE HANDLER ---
+  const handleGoogleSignIn = async () => {
+    try {
+      // This triggers the same flow as Login (User created automatically in Cognito)
+      await signInWithRedirect({ provider: "Google" });
+    } catch (err: any) {
+      console.error("Google Sign Up Error:", err);
+      setError(err.message);
+    }
+  };
 
   const handleSignup = async () => {
     setError("");
@@ -40,11 +52,9 @@ export default function SignupPage() {
         },
       });
 
-      // Success: Move to OTP
       startConfirmationFlow();
       
     } catch (err: any) {
-      // 🔥 FIX: If user exists, just resend code and move to OTP screen
       if (err.name === "UsernameExistsException" || err.message.includes("exists")) {
         try {
           await resendSignUpCode({ username: email });
@@ -59,7 +69,6 @@ export default function SignupPage() {
     }
   };
 
-  // Helper to save state and switch screens
   const startConfirmationFlow = () => {
     localStorage.setItem("pendingSignupEmail", email);
     localStorage.setItem("needsConfirmation", "true");
@@ -74,7 +83,6 @@ export default function SignupPage() {
         confirmationCode: code,
       });
 
-      // Clear storage after success
       localStorage.removeItem("pendingSignupEmail");
       localStorage.removeItem("needsConfirmation");
 
@@ -95,7 +103,6 @@ export default function SignupPage() {
   };
 
   const handleBackToSignup = () => {
-    // Clear storage so we don't get stuck here on reload
     localStorage.removeItem("pendingSignupEmail");
     localStorage.removeItem("needsConfirmation");
     
@@ -106,7 +113,6 @@ export default function SignupPage() {
 
   return (
     <div className="relative w-full h-screen overflow-hidden text-white">
-      {/* Background Video */}
       <video
         autoPlay
         loop
@@ -117,10 +123,8 @@ export default function SignupPage() {
         <source src="/auth-bg.mp4" type="video/mp4" />
       </video>
 
-      {/* Dark Gradient Layer */}
       <div className="fixed inset-0 bg-gradient-to-br from-black/80 via-black/60 to-purple-900/40 -z-5"></div>
 
-      {/* Center Card */}
       <div className="flex justify-center items-center h-full px-4">
         <motion.div
           initial={{ opacity: 0, y: 25 }}
@@ -166,6 +170,26 @@ export default function SignupPage() {
               >
                 Submit
               </button>
+
+              {/* --- OR DIVIDER --- */}
+              <div className="flex items-center my-4">
+                <div className="flex-grow border-t border-white/10"></div>
+                <span className="mx-3 text-gray-400 text-sm">OR</span>
+                <div className="flex-grow border-t border-white/10"></div>
+              </div>
+
+              {/* --- GOOGLE BUTTON --- */}
+              <button
+                onClick={handleGoogleSignIn}
+                className="
+                  w-full flex items-center justify-center gap-3 
+                  bg-white text-black hover:bg-gray-100 
+                  transition-all py-3 rounded-lg font-medium
+                "
+              >
+                <FaGoogle size={18} />
+                <span>Sign up with Google</span>
+              </button>
             </>
           )}
 
@@ -191,7 +215,6 @@ export default function SignupPage() {
               </button>
 
               <div className="flex justify-between mt-4 text-sm">
-                 {/* Manually go back */}
                 <button
                   onClick={handleBackToSignup}
                   className="text-gray-400 hover:text-white transition-colors"
@@ -199,7 +222,6 @@ export default function SignupPage() {
                   ← Change Email
                 </button>
                 
-                 {/* Resend Code Button */}
                 <button
                   onClick={handleResendCode}
                   className="text-purple-400 hover:text-purple-300 transition-colors"
@@ -210,12 +232,10 @@ export default function SignupPage() {
             </>
           )}
 
-          {/* Error Message */}
           {error && (
             <p className="text-red-400 text-sm mt-4 text-center">{error}</p>
           )}
 
-          {/* Link to login */}
           <p className="text-xs text-center text-gray-400 mt-4">
             Already have an account?{" "}
             <a href="/login" className="text-purple-400 hover:underline">
