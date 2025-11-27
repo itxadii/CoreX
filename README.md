@@ -2,29 +2,29 @@
 
 > Production-grade serverless AI Agent Framework built with AWS Bedrock, Lambda, Cognito, and Terraform
 
-[![AWS](https://img.shields.io/badge/AWS-Bedrock%20%7C%20Lambda%20%7C%20Cognito-FF9900?style=flat&logo=amazon-aws)](https://aws.amazon.com/)
-[![Terraform](https://img.shields.io/badge/Terraform-IaC-7B42BC?style=flat&logo=terraform)](https://www.terraform.io/)
-[![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=flat&logo=python)](https://www.python.org/)
-[![React](https://img.shields.io/badge/React-TypeScript-61DAFB?style=flat&logo=react)](https://vitejs.dev/)
+[![AWS](https://img.shields.io/badge/AWS-Bedrock%20%7C%20Lambda%20%7C%20Cognito-FF9900?style=for-the-badge&logo=amazon-aws)](https://aws.amazon.com/)
+[![Terraform](https://img.shields.io/badge/Terraform-IaC-7B42BC?style=for-the-badge&logo=docker)](https://www.docker.com/)
+[![React](https://img.shields.io/badge/React-TypeScript-61DAFB?style=for-the-badge&logo=react)](https://reactjs.org/)
+[![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python)](https://www.python.org/)
 
 **CoreX** is a cloud-native AI Agent system that combines AWS Bedrock Agents, Lambda, DynamoDB, and Cognito to deliver a secure, scalable GenAI platform with tool-using capabilities, persistent memory, and enterprise-grade authentication.
 
 ---
 
-## 🎯 What Makes CoreX Different
+## What Makes CoreX Different
 
 This isn't a chatbot demo. CoreX is a **full-stack, production-ready AI Agent Platform** with:
 
-- 🔐 **Enterprise Authentication** (Cognito + Google OAuth 2.0)
-- 🧠 **Context-Aware Memory** (DynamoDB-backed conversation history)
-- 🛠️ **Tool-Using Agent** (Bedrock Agent with custom action groups)
-- 🏗️ **Infrastructure as Code** (100% Terraform-managed with multi-environment support)
-- 📱 **Production Frontend** (AWS Amplify hosting with mobile-optimized UX)
-- 🔌 **Extensible Architecture** (OpenAPI-based tool integration)
+-  **Enterprise Authentication** (Cognito + Google OAuth 2.0)
+-  **Context-Aware Memory** (DynamoDB-backed conversation history)
+-  **Tool-Using Agent** (Bedrock Agent with custom action groups)
+-  **Infrastructure as Code** (100% Terraform-managed with multi-environment support)
+-  **Production Frontend** (AWS Amplify hosting with mobile-optimized UX)
+-  **Extensible Architecture** (OpenAPI-based tool integration)
 
 ---
 
-## ⚙️ System Architecture
+## System Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -82,7 +82,7 @@ This isn't a chatbot demo. CoreX is a **full-stack, production-ready AI Agent Pl
 
 ---
 
-## 🏗️ Infrastructure Highlights
+## Infrastructure Highlights
 
 ### 1. **Multi-Environment Terraform Architecture**
 
@@ -270,7 +270,7 @@ COREX/
 
 ---
 
-## 📊 Project Status
+## Project Status
 
 | Component | Status | Description |
 |-----------|--------|-------------|
@@ -289,7 +289,7 @@ COREX/
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 | Layer | Technology | Purpose |
 |-------|------------|---------|
@@ -311,7 +311,7 @@ COREX/
 
 ---
 
-## 🎓 Key Technical Achievements
+## Key Technical Achievements
 
 ### 1. **Solved the "Circular Dependency" Deadlock**
 **Problem:** API Gateway module needed Cognito User Pool ARN for the authorizer, but Cognito module referenced API Gateway endpoints in redirect URLs—creating a circular dependency that Terraform couldn't resolve.
@@ -431,7 +431,7 @@ Now, any change to methods/integrations forces a new deployment.
 
 ---
 
-## 💡 Lessons Learned (Interview Talking Points)
+## Lessons Learned (Interview Talking Points)
 
 ### The "Unconfirmed User" Limbo
 **Scenario:** User signs up but forgets to verify email. Later, they try to sign up again with the same email. AWS returns `UsernameExistsException`. They try to log in—AWS returns `UserNotConfirmedException`. They're stuck.
@@ -470,7 +470,7 @@ try {
 
 ---
 
-## 🗺️ Roadmap
+## Roadmap
 
 | Phase | Goal | Status |
 |-------|------|--------|
@@ -485,7 +485,7 @@ try {
 
 ---
 
-## 🧰 Engineering Philosophy
+## Engineering Philosophy
 
 CoreX follows enterprise AWS architecture principles:
 
@@ -499,7 +499,7 @@ CoreX follows enterprise AWS architecture principles:
 
 ---
 
-## 👤 Author
+## Author
 
 **Aditya Waghmare**  
 AWS Solutions Architect | GenAI Engineer | Terraform Specialist
@@ -511,7 +511,7 @@ Building cloud-native AI systems with enterprise-grade infrastructure.
 
 ---
 
-## 🏆 Project Highlights
+## Project Highlights
 
 CoreX demonstrates mastery of:
 
@@ -528,7 +528,7 @@ CoreX demonstrates mastery of:
 
 ---
 
-## 📜 License
+## License
 
 This project is currently under active development. All rights reserved.
 
