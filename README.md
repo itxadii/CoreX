@@ -11,9 +11,9 @@
 
 ### Live Deployments -
 
--  **Dev** : [Click Here](https://dev.d3h4csxsp92hux.amplifyapp.com/)
-
--  **Prod** : [Click Here](https://prod.d3h4csxsp92hux.amplifyapp.com/)
+  **✅ Dev** : [Click Here](https://dev.d3h4csxsp92hux.amplifyapp.com/)
+    
+  **✅ Prod** : [Click Here](https://prod.d3h4csxsp92hux.amplifyapp.com/)
 
 ---
 
