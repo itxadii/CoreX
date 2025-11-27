@@ -9,6 +9,41 @@
 
 **CoreX** is a cloud-native AI Agent system that combines AWS Bedrock Agents, Lambda, DynamoDB, and Cognito to deliver a secure, scalable GenAI platform with tool-using capabilities, persistent memory, and enterprise-grade authentication.
 
+### Live Deployments -
+
+-  **Dev** : [Click Here](https://dev.d3h4csxsp92hux.amplifyapp.com/)
+
+-  **Prod** : [Click Here](https://prod.d3h4csxsp92hux.amplifyapp.com/)
+
+---
+
+## Table of Contents
+- [What Makes CoreX Different](#what-makes-corex-different)
+- [System Architecture](#system-architecture)
+- [Infrastructure Highlights](#infrastructure-highlights)
+  - [1. Multi-Environment Terraform Architecture](#1-multi-environment-terraform-architecture)
+  - [2. Authentication System (AWS Cognito)](#2-authentication-system-aws-cognito)
+  - [3. AI Agent (Amazon Bedrock)](#3-ai-agent-amazon-bedrock)
+  - [4. Backend (AWS Lambda)](#4-backend-aws-lambda)
+  - [5. API Gateway (REST API)](#5-api-gateway-rest-api)
+  - [6. Frontend (React + AWS Amplify)](#6-frontend-react--aws-amplify)
+- [Project Status](#project-status)
+- [Tech Stack](#tech-stack)
+- [Key Technical Achievements](#key-technical-achievements)
+  - [1. Solved the "Circular Dependency" Deadlock](#1-solved-the-circular-dependency-deadlock)
+  - [2. Conquered the "Silent CORS Error"](#2-conquered-the-silent-cors-error)
+  - [3. Implemented Mobile-Resilient Authentication](#3-implemented-mobile-resilient-authentication)
+  - [4. Built Custom Context Injection for Memory](#4-built-custom-context-injection-for-memory)
+  - [5. Mastered Terraform State Migration](#5-mastered-terraform-state-migration)
+  - [6. Fixed the "False Out-of-Domain" Problem](#6-fixed-the-false-out-of-domain-problem)
+  - [7. Conquered API Gateway's "Stale Deployment" Mystery](#7-conquered-api-gateways-stale-deployment-mystery)
+- [Lessons Learned](#lessons-learned)
+- [Roadmap](#roadmap)
+- [Engineering Philosophy](#engineering-philosophy)
+- [Author](#author)
+- [Project Highlights](#project-highlights)
+- [License](#license)
+
 ---
 
 ## What Makes CoreX Different
@@ -370,29 +405,7 @@ Verified with `terraform plan` showing 0 changes, proving the migration was non-
 
 ---
 
-### 6. **Debugged Bedrock Agent Tool Routing**
-**Problem:** Bedrock Agent rejected Lambda responses with error: `"APIPath in Lambda response doesn't match input"`. The agent sends a specific `apiPath` in the event (e.g., `/search`), and expects the Lambda to echo it back in the response—but we were returning a hardcoded path.
-
-**Solution:** Modified Lambda to dynamically extract `apiPath` from the incoming event:
-```python
-api_path = event.get('apiPath', '/')
-return {
-    'messageVersion': '1.0',
-    'response': {
-        'apiPath': api_path,  # Echo back the path
-        'actionGroup': event['actionGroup'],
-        'httpMethod': event['httpMethod'],
-        'httpStatusCode': 200,
-        'responseBody': { ... }
-    }
-}
-```
-
-**Impact:** Enabled multi-tool architecture where a single Lambda can handle multiple action groups.
-
----
-
-### 7. **Fixed the "False Out-of-Domain" Problem**
+### 6. **Fixed the "False Out-of-Domain" Problem**
 **Problem:** Bedrock Agent was rejecting simple greetings like "Hi" or "What's your name?" with `<outOfDomain>User query is out of scope</outOfDomain>`. The default orchestration template assumed **every** query must map to a tool—even casual conversation.
 
 **Solution:** Overrode the **Pre-Processing Prompt Template** in Bedrock Agent configuration:
@@ -408,7 +421,7 @@ Do NOT reject queries as "out of domain" unless they are harmful or unrelated to
 
 ---
 
-### 8. **Conquered API Gateway's "Stale Deployment" Mystery**
+### 7. **Conquered API Gateway's "Stale Deployment" Mystery**
 **Problem:** After updating API Gateway methods via Terraform (e.g., removing auth from `OPTIONS`), the live API didn't reflect changes. Running `terraform apply` showed "no changes," but the old configuration was still active.
 
 **Solution:** Discovered that API Gateway requires an explicit **Deployment** resource to push changes to a stage. Added a trigger:
@@ -431,7 +444,7 @@ Now, any change to methods/integrations forces a new deployment.
 
 ---
 
-## Lessons Learned (Interview Talking Points)
+## Lessons Learned
 
 ### The "Unconfirmed User" Limbo
 **Scenario:** User signs up but forgets to verify email. Later, they try to sign up again with the same email. AWS returns `UsernameExistsException`. They try to log in—AWS returns `UserNotConfirmedException`. They're stuck.
@@ -502,12 +515,12 @@ CoreX follows enterprise AWS architecture principles:
 ## Author
 
 **Aditya Waghmare**  
-AWS Solutions Architect | GenAI Engineer | Terraform Specialist
+AWS & Devops Engineer | Building Production Systems
 
 Building cloud-native AI systems with enterprise-grade infrastructure.
 
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0077B5?style=flat&logo=linkedin)](https://linkedin.com)
-[![GitHub](https://img.shields.io/badge/GitHub-Follow-181717?style=flat&logo=github)](https://github.com)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0077B5?style=for-the-badge&logo=linkedin)](https://www.linkedin.com/in/xadi)
+[![Email](https://img.shields.io/badge/Email-Contact-D14836?style=for-the-badge&logo=gmail)](mailto:adityawaghmarex@gmail.com)
 
 ---
 
