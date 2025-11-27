@@ -1,4 +1,4 @@
-# CoreX — Enterprise AI Agent Platform
+# 👾 CoreX — Enterprise AI Agent Platform
 
 > Production-grade serverless AI Agent Framework built with AWS Bedrock, Lambda, Cognito, and Terraform
 
@@ -17,7 +17,7 @@
 
 ---
 
-## Table of Contents
+## 📋 Table of Contents
 - [What Makes CoreX Different](#what-makes-corex-different)
 - [System Architecture](#system-architecture)
 - [Infrastructure Highlights](#infrastructure-highlights)
