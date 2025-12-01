@@ -12,17 +12,20 @@ Amplify.configure({
       loginWith: {
         email: true,
         oauth: {
-          domain: 'https://corex-dev-6zqyuu.auth.ap-south-1.amazoncognito.com', 
+          domain: 'corex-dev-6zqyuu.auth.ap-south-1.amazoncognito.com', 
+          
           scopes: ['email', 'profile', 'openid', 'aws.cognito.signin.user.admin'],
-          redirectSignIn: ['http://localhost:5173', 'https://dev.d3h4csxsp92hux.amplifyapp.com'], 
-          redirectSignOut: ['http://localhost:5173/login', 'https://dev.d3h4csxsp92hux.amplifyapp.com/login'],
+          
+          // CRITICAL: Must match Terraform Callback URLs exactly (including trailing slash /)
+          redirectSignIn: ['http://localhost:5173/'], 
+          redirectSignOut: ['http://localhost:5173/login'],
+          
           responseType: 'code',
         },
       },
     },
   },
 });
-
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
