@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { FiEdit, FiMessageSquare, FiSettings, FiLogOut } from 'react-icons/fi';
 import SidebarItem from './SidebarItem';
 import { fetchAuthSession } from 'aws-amplify/auth'; 
+import ResponseLoader from './ResponseLoader';
 
 const API_URL = import.meta.env.VITE_API_URL; 
 
@@ -114,11 +115,13 @@ const Sidebar: React.FC<SidebarProps> = ({ expanded, signOut, onSelectChat, onNe
 
         <div className="flex-1 overflow-y-auto px-3 scrollbar-thin scrollbar-thumb-zinc-700">
           {loading ? (
-            <div className="text-zinc-500 text-sm text-center mt-4">Loading...</div>
+            <div className="justify-center items-center mt-4">
+              <ResponseLoader />
+            </div>
           ) : (
             <ul className="space-y-1 mt-2">
               {history.length === 0 && (
-                <li className="text-zinc-600 text-sm px-2">No chat history found.</li>
+                <li className="text-zinc-600 text-sm px-2">No chat history</li>
               )}
               
               {history.map((session) => (
