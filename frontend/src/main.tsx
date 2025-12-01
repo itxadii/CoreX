@@ -17,9 +17,8 @@ Amplify.configure({
           scopes: ['email', 'profile', 'openid', 'aws.cognito.signin.user.admin'],
           
           // CRITICAL: Must match Terraform Callback URLs exactly (including trailing slash /)
-          redirectSignIn: ['http://localhost:5173/'], 
-          redirectSignOut: ['http://localhost:5173/login'],
-          
+          redirectSignIn: ['http://localhost:5173/', 'https://dev.d3h4csxsp92hux.amplifyapp.com/', 'https://dev.d3h4csxsp92hux.amplifyapp.com'], 
+          redirectSignOut: ['http://localhost:5173/login', 'https://dev.d3h4csxsp92hux.amplifyapp.com/login'],
           responseType: 'code',
         },
       },
