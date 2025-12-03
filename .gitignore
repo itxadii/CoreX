@@ -49,7 +49,32 @@ venv/
 backend/src/build/
 
 # Terraform (ignore everything except .tf source files)
-backend/terraform/*
-!backend/terraform/*.tf
+
+# Terraform directories
+**/.terraform/
+**/.terraform/*
+
+# Local state files
+**/*.tfstate
+**/*.tfstate.*
+**/*.tfstate.backup
+
+# Crash logs
+crash.log
+crash.*.log
+
+# Sensitive variable files
+*.tfvars
+*.tfvars.json
+
+# Ignore override files
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Terraform plan output
+*.tfplan
+
 
 
